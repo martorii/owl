@@ -1,0 +1,28 @@
+# Python
+__pycache__
+.venv
+.eggs
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea
+.vscode
+
+# System
+.DS_Store
+
+# Pre-commit
+.ruff_cache
+.mypy_cache
+.pytest_cache
+
+# Docs
+debug/docs
+debug/cases
+**.pdf

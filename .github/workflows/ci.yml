@@ -1,0 +1,17 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      # This runs every check defined in your .pre-commit-config.yaml
+      - name: Run Pre-commit Hooks
+        run: uv run pre-commit run --all-files
+
+      # This runs your actual logic tests
+      - name: Run Tests
+        run: uv run pytest
