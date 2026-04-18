@@ -216,7 +216,11 @@ class CurrencyType(FieldType):
             code = "UNK"
 
         # Strip all non-digit characters (separators, spaces)
-        digits_only = re.sub(r"[^\d]", "", raw_amount)
+        # First, handle decimal part: if it ends with .XX or ,XX, strip it
+        # (heuristic: if there's a separator followed by 1 or 2 digits at the end, it's cents)
+        stripped_amount = re.sub(r"[.,]\d{1,2}$", "", raw_amount)
+        
+        digits_only = re.sub(r"[^\d]", "", stripped_amount)
         if not digits_only:
             return None
         try:
