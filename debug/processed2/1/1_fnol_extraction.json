@@ -1,0 +1,213 @@
+{
+  "general": {
+    "claim_identification": {
+      "claim_id": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "policy_number": {
+        "reason": "Policy Number: POL-123456789",
+        "value": "POL-123456789",
+        "_page": 1
+      },
+      "date_of_loss": {
+        "reason": "Date of Loss: March 28, 2026",
+        "value": "2026-03-28",
+        "_page": 1
+      },
+      "date_of_report": {
+        "reason": "Reported Date: March 29, 2026",
+        "value": "2026-03-29",
+        "_page": 1
+      },
+      "adjuster_handler": {
+        "reason": "A field adjuster has been assigned to inspect the damages in detail.",
+        "value": "field adjuster",
+        "_page": 1
+      }
+    },
+    "insured_claimant": {
+      "insured_name": {
+        "reason": "Name: Max Mustermann",
+        "value": "Max Mustermann",
+        "_page": 1
+      },
+      "contact_information": {
+        "reason": "Contact: +49 123 456789",
+        "value": "+49 123 456789",
+        "_page": 1
+      },
+      "relationship_to_policy": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      }
+    },
+    "location": {
+      "risk_address": {
+        "reason": "Address: Musterstraße 1, 80331 Munich, Germany",
+        "value": "Musterstraße 1, 80331 Munich, Germany",
+        "_page": 1
+      },
+      "site_access_notes": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      }
+    },
+    "cause_of_loss": {
+      "peril_cause": {
+        "reason": "Type of Loss: Water Damage",
+        "value": "Water Damage",
+        "_page": 1
+      },
+      "brief_description": {
+        "reason": "The policyholder reported a significant water leak originating from a burst pipe in the kitchen area. The leak resulted in flooding across the kitchen and adjacent living room.",
+        "value": "significant water leak originating from a burst pipe in the kitchen area. The leak resulted in flooding across the kitchen and adjacent living room.",
+        "_page": 1
+      }
+    },
+    "what_happened": {
+      "reason": "Incident Description: The policyholder reported a significant water leak originating from a burst pipe in the kitchen area. The leak resulted in flooding across the kitchen and adjacent living room. Initial mitigation efforts were undertaken by the policyholder, including shutting off the main water supply and contacting emergency repair services.",
+      "value": "significant water leak originating from a burst pipe in the kitchen area. The leak resulted in flooding across the kitchen and adjacent living room. Initial mitigation efforts were undertaken by the policyholder, including shutting off the main water supply and contacting emergency repair services.",
+      "_page": 1
+    }
+  },
+  "damages": {
+    "damaged_items_and_areas": {
+      "reason": "Damage includes flooring, cabinetry, electrical outlets, and personal property. Item | Description | Estimated Cost (€) | Flooring | Hardwood floor water damage | 4,500 | Cabinetry | Kitchen cabinets swelling and damage | 3,200 | Electrical | Outlet and wiring inspection/repair | 1,150 | Furniture | Sofa and table water exposure | 2,000 | Cleanup | Water extraction and drying services | 1,800",
+      "value": "Flooring: Hardwood floor water damage (4,500), Cabinetry: Kitchen cabinets swelling and damage (3,200), Electrical: Outlet and wiring inspection/repair (1,150), Furniture: Sofa and table water exposure (2,000), Cleanup: Water extraction and drying services (1,800)",
+      "_page": 1
+    },
+    "occupancy": {
+      "property_type": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "occupancy_at_time_of_loss": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "use_of_property": {
+        "reason": "The description mentions kitchen and living room, implying residential use.",
+        "value": null,
+        "_page": null
+      }
+    }
+  },
+  "financials": {
+    "reserves": {
+      "current_total_reserve": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "property_damage_reserve": {
+        "reason": "The estimated costs listed in the table represent potential property damage.",
+        "value": null,
+        "_page": null
+      },
+      "business_interruption_reserve": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "other_reserve": {
+        "reason": "The estimated costs listed in the table represent other potential losses.",
+        "value": null,
+        "_page": null
+      }
+    },
+    "estimated_incurred_losses": {
+      "estimated_total_loss_gross": {
+        "reason": "Summing the estimated costs from the damage assessment: 4500 + 3200 + 1150 + 2000 + 1800 = 12650",
+        "value": "EUR 12650",
+        "_page": 1
+      },
+      "estimated_total_loss_net": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "property_damage_gross": {
+        "reason": "Summing the estimated costs from the damage assessment: 4500 + 3200 + 1150 + 2000 + 1800 = 12650",
+        "value": "EUR 12650",
+        "_page": 1
+      },
+      "property_damage_net": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "business_interruption_gross": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "business_interruption_net": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "extra_expenses": {
+        "reason": "The cleanup cost is listed separately from direct damage items.",
+        "value": "1800",
+        "_page": 1
+      },
+      "other_losses": {
+        "reason": "The costs associated with the specific damaged items are considered other losses outside of standard property damage categories if not categorized above.",
+        "value": null,
+        "_page": null
+      }
+    },
+    "applied_deductibles": {
+      "property_deductible": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      },
+      "business_interruption_deductible": {
+        "reason": null,
+        "value": null,
+        "_page": null
+      }
+    },
+    "payments_made": []
+  },
+  "coverage": {
+    "policy_number": {
+      "reason": "Policy Number: POL-123456789",
+      "value": "POL-123456789",
+      "_page": 1
+    },
+    "policy_period_start": {
+      "reason": null,
+      "value": null,
+      "_page": null
+    },
+    "policy_period_end": {
+      "reason": null,
+      "value": null,
+      "_page": null
+    },
+    "coverage_type": {
+      "reason": "The document implies standard coverage terms are applicable.",
+      "value": null,
+      "_page": null
+    },
+    "coverage_limits": {
+      "reason": "No specific coverage limits are mentioned.",
+      "value": null,
+      "_page": null
+    },
+    "exclusions_noted": {
+      "reason": "The document states the loss is consistent with policy coverage terms but does not list specific exclusions.",
+      "value": null,
+      "_page": null
+    }
+  },
+  "_document": "1_fnol.pdf"
+}

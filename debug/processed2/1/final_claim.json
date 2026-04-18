@@ -1,0 +1,400 @@
+[
+  {
+    "field_name": "coverage.coverage_limits",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "coverage.coverage_type",
+    "reason": "approved insurance claim for water damage",
+    "field_value": "water damage",
+    "source_documents": [
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.733
+  },
+  {
+    "field_name": "coverage.exclusions_noted",
+    "reason": "No exclusions appear applicable at this stage, subject to final policy verification.",
+    "field_value": "No exclusions appear applicable at this stage, subject to final policy verification",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      2
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "coverage.policy_number",
+    "reason": "Policy Number: POL-123456789",
+    "field_value": "POL-123456789",
+    "source_documents": [
+      "1_fnol.pdf",
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1,
+      1
+    ],
+    "confidence": 1.0
+  },
+  {
+    "field_name": "coverage.policy_period_end",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "coverage.policy_period_start",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "damages.damaged_items_and_areas",
+    "reason": "Flooring 4,850, Cabinetry 3,450, Electrical 1,300, Furniture 2,250, Cleanup 2,050",
+    "field_value": "Flooring 4850, Cabinetry 3450, Electrical 1300, Furniture 2250, Cleanup 2050",
+    "source_documents": [
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.733
+  },
+  {
+    "field_name": "damages.occupancy.occupancy_at_time_of_loss",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "damages.occupancy.property_type",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "damages.occupancy.use_of_property",
+    "reason": "The inspection confirmed that a burst pipe beneath the kitchen sink caused significant water discharge. Water spread across the kitchen and into the adjacent living room area.",
+    "field_value": "Kitchen and adjacent living room area",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "financials.applied_deductibles.business_interruption_deductible",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.applied_deductibles.property_deductible",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.business_interruption_gross",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.business_interruption_net",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.estimated_total_loss_gross",
+    "reason": "Total Requested 13,900",
+    "field_value": "13900",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      null,
+      1
+    ],
+    "confidence": 0.867
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.estimated_total_loss_net",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.extra_expenses",
+    "reason": "Inspection Date: April 2, 2026",
+    "field_value": "null",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      null
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.other_losses",
+    "reason": "Electrical | Inspection and replacement of outlets/wiring | 1,300",
+    "field_value": "1300",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      2
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.property_damage_gross",
+    "reason": "Total Requested 13,900",
+    "field_value": "13900",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1
+    ],
+    "confidence": 0.867
+  },
+  {
+    "field_name": "financials.estimated_incurred_losses.property_damage_net",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.reserves.business_interruption_reserve",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.reserves.current_total_reserve",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "financials.reserves.other_reserve",
+    "reason": "Revised Estimated Cost (€) | Cabinetry | Repair and partial replacement of kitchen cabinets | 3,450",
+    "field_value": "3450",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "financials.reserves.property_damage_reserve",
+    "reason": "Total Requested 13,900",
+    "field_value": "13900",
+    "source_documents": [
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.733
+  },
+  {
+    "field_name": "general.cause_of_loss.brief_description",
+    "reason": "The inspection confirmed that a burst pipe beneath the kitchen sink caused significant water discharge.",
+    "field_value": "burst pipe beneath the kitchen sink caused significant water discharge",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "general.cause_of_loss.peril_cause",
+    "reason": "Type of Loss: Water Damage (Burst Pipe)",
+    "field_value": "Water Damage (Burst Pipe)",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1
+    ],
+    "confidence": 0.867
+  },
+  {
+    "field_name": "general.claim_identification.adjuster_handler",
+    "reason": "A field adjuster has been assigned to inspect the damages in detail.",
+    "field_value": "field adjuster",
+    "source_documents": [
+      "1_fnol.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.133
+  },
+  {
+    "field_name": "general.claim_identification.claim_id",
+    "reason": "Claim Number: CLM-2026-000987",
+    "field_value": "CLM-2026-000987",
+    "source_documents": [
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.733
+  },
+  {
+    "field_name": "general.claim_identification.date_of_loss",
+    "reason": "Date of Loss: March 28, 2026",
+    "field_value": "2026-03-28",
+    "source_documents": [
+      "1_fnol.pdf",
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1,
+      1
+    ],
+    "confidence": 1.0
+  },
+  {
+    "field_name": "general.claim_identification.date_of_report",
+    "reason": "Inspection Date: April 2, 2026",
+    "field_value": "2026-04-02",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "general.claim_identification.policy_number",
+    "reason": "Policy Number: POL-123456789",
+    "field_value": "POL-123456789",
+    "source_documents": [
+      "1_fnol.pdf",
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1,
+      1
+    ],
+    "confidence": 1.0
+  },
+  {
+    "field_name": "general.insured_claimant.contact_information",
+    "reason": "Email: max.mustermann@example.com",
+    "field_value": "max.mustermann@example.com",
+    "source_documents": [
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.733
+  },
+  {
+    "field_name": "general.insured_claimant.insured_name",
+    "reason": "Name: Max Mustermann",
+    "field_value": "Max Mustermann",
+    "source_documents": [
+      "1_fnol.pdf",
+      "2_loss_adjuster_report.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1,
+      1
+    ],
+    "confidence": 1.0
+  },
+  {
+    "field_name": "general.insured_claimant.relationship_to_policy",
+    "reason": "Policyholder: Max Mustermann",
+    "field_value": "Policyholder",
+    "source_documents": [
+      "2_loss_adjuster_report.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.433
+  },
+  {
+    "field_name": "general.location.risk_address",
+    "reason": "Address: Musterstraße 1, 80331 Munich, Germany",
+    "field_value": "Musterstraße 1, 80331 Munich, Germany",
+    "source_documents": [
+      "1_fnol.pdf",
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1,
+      1
+    ],
+    "confidence": 0.867
+  },
+  {
+    "field_name": "general.location.site_access_notes",
+    "field_value": null,
+    "source_documents": [],
+    "pages": [],
+    "confidence": 0.0
+  },
+  {
+    "field_name": "general.what_happened",
+    "reason": "This document constitutes a formal payment request submitted by the policyholder in relation to the approved insurance claim for water damage.",
+    "field_value": "formal payment request submitted by the policyholder in relation to the approved insurance claim for water damage",
+    "source_documents": [
+      "3_payment_request.pdf"
+    ],
+    "pages": [
+      1
+    ],
+    "confidence": 0.733
+  }
+]
