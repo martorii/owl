@@ -26,3 +26,5 @@ __pycache__
 debug/docs
 debug/cases
 **.pdf
+
+.agents
