@@ -4,17 +4,17 @@ OWL suggests updates to insurance record fields from an OCR'd document bundle, w
 grounded in verbatim quotes. Python 3.12, DDD, pydantic_ai, FastAPI.
 
 ## Read first
-- **[CONTRACT.md](CONTRACT.md)** — the binding decisions. Code must conform to it. Do not change a decision
-  without explicit user approval; if a change is approved, update CONTRACT.md in the same branch.
+- **[specs/CONTRACT.md](specs/CONTRACT.md)** — the binding decisions. Code must conform to it. Do not change a decision
+  without explicit user approval; if a change is approved, update specs/CONTRACT.md in the same branch.
   Never implement items listed under "Parked".
-- **[PLAN.md](PLAN.md)** — the step-by-step plan. Work only on the current step.
+- **[specs/PLAN.md](specs/PLAN.md)** — the step-by-step plan. Work only on the current step.
 
 ## Workflow
 - One branch per PLAN step: `feat/<NN>-<slug>` from latest `main`.
-- Write tests first; keep to the step's scope; record out-of-scope findings under "Follow-ups" in PLAN.md.
+- Write tests first; keep to the step's scope; record out-of-scope findings under "Follow-ups" in specs/PLAN.md.
 - Gate before reporting: ruff, pyright, import-linter, pytest all green (commands below).
 - Report results and deviations to the user, then **wait for acceptance before merging** and before starting
-  the next step. Mark the step `[x]` in PLAN.md when merged.
+  the next step. Mark the step `[x]` in specs/PLAN.md when merged.
 - Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`, `ci:`).
 
 ## Commands

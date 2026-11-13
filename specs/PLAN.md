@@ -15,7 +15,7 @@ Driven by [CONTRACT.md](CONTRACT.md). Each step is one feature branch.
 5. **Only after the user accepts**: merge into `main` (PR, squash merge), delete the branch, tick the step below.
 6. Never start step N+1 before step N is merged.
 
-If a step requires changing CONTRACT.md, stop and ask the user first.
+If a step requires changing specs/CONTRACT.md, stop and ask the user first.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` merged
 
