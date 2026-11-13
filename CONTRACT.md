@@ -1,0 +1,376 @@
+# OWL — Contract
+
+This document records the decisions that drive development. Code must conform to it.
+Any change to a decision here requires explicit user approval and is made in this file first,
+in the same branch as the code that depends on it (see "Change process" at the end).
+
+Decisions marked **(default)** were not explicitly discussed; they are sensible defaults that may be revisited.
+Items under **Parked** are deliberately undecided — do not implement them until they are decided here.
+
+---
+
+## 1. Purpose
+
+Given a **document bundle** (already OCR'd text with metadata) and optionally the **current field values**
+of an insurance record, return a list of **update suggestions** (and **conflicts**) for those fields.
+Every suggestion must be grounded in verbatim quotes from the bundle. All output is reviewed by a human,
+so the system favours **recall over precision**: it is better to suggest than to omit.
+
+## 2. Glossary (ubiquitous language)
+
+| Term | Meaning |
+|---|---|
+| **Bundle** | The set of documents submitted in one request. |
+| **Document** | One OCR'd text with `filename` and `document_type`. |
+| **Document type** | One of `invoice`, `contract`, `email`, `spreadsheet`, `adjuster_report`, `other` **(default: `other`)**. |
+| **LoB** | Line of business: `casualty` or `property`. |
+| **Business type** | `direct` or `reinsurance`. |
+| **Catalog** | The versioned YAML list of field definitions. |
+| **Active fields** | Catalog fields applicable to the request's `(lob, business_type)`. |
+| **Field group** | A set of fields extracted together in one LLM call. |
+| **Candidate** | A value found by the LLM for a field, with evidence. |
+| **Evidence** | A `(document, quote)` pair supporting a candidate. |
+| **Suggestion** | A proposed `add` or `change` to a field. |
+| **Conflict** | A field for which two or more distinct values were found. |
+| **Mode** | `update` (current values provided) or `extraction` (no current values). |
+
+## 3. Field catalog
+
+- Lives in `catalog/fields.yaml`, loaded at startup into typed domain `FieldDefinition` objects. A malformed
+  catalog fails startup.
+- The catalog carries a `version` string. Every response, trace and eval run records it.
+- Field definition:
+
+```yaml
+version: "2026-11-13.1"
+fields:
+  - name: policy_inception_date          # unique, snake_case
+    type: date                           # see §4
+    item_type: null                      # required iff type == list
+    ordered: false                       # only meaningful for list
+    allowed_values: null                 # required iff type == enum (or item_type == enum)
+    description: Start date of the policy period.   # also used in the extraction prompt
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, email]
+```
+
+- Active fields = fields whose `applies_to` contains both the request's `lob` and `business_type`.
+- The first catalog is drafted by Claude during implementation (≈30 fields, groups such as `parties`,
+  `policy_terms`, `financials`, `property_risk`, `casualty_risk`, `claims`) and will later be replaced by the
+  real one without code changes.
+
+## 4. Field types
+
+Closed set. Each type has a **parser/normaliser** and an **equality** rule in the domain. "Change" and
+"conflict" decisions are always made on normalised values.
+
+| Type | Normalised form | Equal when |
+|---|---|---|
+| `string` | trimmed, whitespace collapsed | equal case-insensitively |
+| `integer` | `int` (thousands separators removed) | exact |
+| `decimal` | `Decimal` | equal within configured precision |
+| `bool` | `true`/`false` (from yes/no, Y/N, true/false, …) | exact |
+| `date` | ISO `YYYY-MM-DD` | exact |
+| `money` | `{amount: Decimal, currency: ISO-4217}` | amount and currency equal |
+| `percentage` | `Decimal` fraction (`15%` → `0.15`) | exact |
+| `enum` | one of `allowed_values` | exact |
+| `list` | list of `item_type` values | as a set; as a sequence if `ordered: true` |
+
+No free-form `object` type. A `record` type with sub-fields may be added later.
+
+## 5. Inputs
+
+### 5.1 Request (both modes)
+
+```json
+{
+  "lob": "property",
+  "business_type": "reinsurance",
+  "documents": [
+    {"document_id": "client-123", "filename": "slip.pdf", "document_type": "contract", "text": "..."}
+  ],
+  "current_values": {"policy_inception_date": "2026-01-01"}
+}
+```
+
+- `lob` and `business_type` are **required**. No inference (a `ClassifyBundle` step may be added later).
+- `documents` must be non-empty; each `text` must be non-empty.
+- `document_id` is optional **(default)**. If absent, the system assigns `doc-<index>` (0-based input order).
+  This is the identifier returned in evidence.
+- `current_values` is required and may be empty in `update` mode; it is not accepted in `extraction` mode.
+- `current_values` keys must be catalog field names; unknown names → `422` **(default)**. Fields not active
+  for the request are ignored with a warning **(default)**. Values are parsed with the field's type
+  parser; unparseable values → `422` **(default)**.
+
+### 5.2 Internal short IDs
+
+- In prompts, documents are labelled `D1, D2, …` and active fields `F1, F2, …` (catalog order).
+- The mapping is per request and lives in the domain. Short IDs never appear in responses.
+
+## 6. Output
+
+```json
+{
+  "request_id": "…",
+  "catalog_version": "2026-11-13.1",
+  "prompt_version": "…",
+  "mode": "update",
+  "suggestions": [
+    {
+      "field": "policy_inception_date",
+      "action": "change",
+      "current_value": "2026-01-01",
+      "proposed_value": "2026-03-01",
+      "evidence": [
+        {"document_id": "client-123", "filename": "slip.pdf", "quote": "Period: 01/03/2026 to 28/02/2027", "match": "exact"}
+      ],
+      "rationale": "The slip states a 1 March inception.",
+      "confidence": 0.86,
+      "flags": []
+    }
+  ],
+  "conflicts": [
+    {
+      "field": "limit",
+      "current_value": {"amount": "5000000", "currency": "USD"},
+      "candidates": [
+        {"value": {"amount": "5000000", "currency": "USD"}, "evidence": [], "rationale": "…", "confidence": 0.7, "flags": []},
+        {"value": {"amount": "7500000", "currency": "USD"}, "evidence": [], "rationale": "…", "confidence": 0.8, "flags": []}
+      ]
+    }
+  ],
+  "warnings": [
+    {"code": "candidate_dropped", "message": "…", "field": "limit", "group": "financials", "document_id": null}
+  ]
+}
+```
+
+Rules:
+- `action` ∈ {`add`, `change`}. There is **no `confirm`** and **no `remove`**.
+- Only changes are output: a field whose single found value equals the current value produces nothing.
+- A field appears in **either** `suggestions` **or** `conflicts`, never both.
+- A conflict is reported whenever ≥ 2 distinct normalised values are found, **even if one equals the current value**.
+- `evidence` has at least one entry; candidates with no valid evidence are dropped.
+- `match` ∈ {`exact`, `fuzzy`}. A fuzzy-matched quote is replaced by the actual source text.
+- `confidence` is the model's self-report (max over merged candidates). It is used for sorting only, **never for filtering**.
+- `flags` currently only contains `value_not_in_quote` (§8.3).
+- In `extraction` mode the shape is identical; all actions are `add` and `current_value` is `null`.
+- Warning codes (initial set): `candidate_dropped`, `document_truncated`, `group_failed`, `field_inactive_ignored`.
+
+## 7. Pipeline
+
+```
+validate request → select active fields → group fields
+   → per group, in parallel:  select context → extract (LLM) → validate output (ModelRetry loop)
+   → join → normalise & reconcile (domain) → [cross-field validation: parked] → [polishing: parked] → response
+```
+
+### 7.1 Context selection
+
+- Port: `ContextSelector.select(group, bundle, budget) -> ExtractionContext`.
+- First implementation, `TypeFilterSelector`:
+  1. Candidate documents = documents whose type is in any of the group's `preferred_document_types`;
+     if none, all documents.
+  2. Add whole documents, preferred types first (then input order), until the token budget is reached.
+  3. A single document larger than the remaining budget is cut at the end (keeps the start), with a
+     `document_truncated` warning.
+- Budget = configured fraction of the extraction model's `CONTEXT_WINDOW` (default 0.6).
+- Future `HybridRetrievalSelector` (chunking + BM25 + embeddings + RRF, `Embedder` port) plugs into the
+  same port and is chosen by config.
+- Quotes are always validated against the **full** document text, not the selected excerpt.
+
+### 7.2 Extraction output (per group, structured output)
+
+```json
+{
+  "fields": [
+    {
+      "field_id": "F3",
+      "candidates": [
+        {
+          "value": {"amount": 5000000, "currency": "USD"},
+          "evidence": [{"doc_id": "D2", "quote": "Limit: USD 5,000,000 any one occurrence"}],
+          "rationale": "…",
+          "confidence": 0.8
+        }
+      ]
+    }
+  ]
+}
+```
+
+- Fields not found are **omitted** (never `null`).
+- `value` is typed per field (the per-group output model is built dynamically from the active fields).
+- The model is instructed to report **every** distinct value it finds, not to resolve disagreements.
+
+### 7.3 Reconciliation (domain, deterministic)
+
+Per field:
+1. Normalise candidate values; merge candidates with equal normalised values (union evidence, max confidence).
+2. One distinct value ≠ current → suggestion (`add` if current is absent, else `change`).
+3. One distinct value = current → nothing.
+4. ≥ 2 distinct values → conflict.
+
+Known accepted limitation: restated old values ("previously USD 5m, now USD 7.5m") produce false conflicts;
+they are measured in evals and left to the reviewer.
+
+## 8. Output validation
+
+Implemented as pydantic_ai output validators raising `ModelRetry`.
+
+### 8.1 ID checks
+- Missing or unknown `doc_id` or `field_id` → `ModelRetry`.
+
+### 8.2 Quote matcher (per evidence entry)
+1. **Normalised exact match**: NFKC, unify quotes/dashes, collapse whitespace, ignore case,
+   remove line-break hyphenation. Match → `match: exact`.
+2. **Fuzzy fallback**, only if the normalised quote has ≥ 25 characters (configurable): best window with
+   rapidfuzz `partial_ratio` ≥ 92 (configurable). Match → quote replaced with the source text, `match: fuzzy`.
+3. **No match** → `ModelRetry`.
+
+### 8.3 Value-in-quote check (soft)
+The field's type parser must find the proposed value in at least one quote. If not, the candidate is
+kept with flag `value_not_in_quote`.
+
+### 8.4 Retry policy
+- One `ModelRetry` message lists **all** failures of that output.
+- `max_retries` default 2 (configurable).
+- When retries are exhausted, invalid evidence/candidates are dropped with `candidate_dropped` warnings
+  and the rest of the group output is kept. The group fails (`group_failed`) only if nothing valid remains.
+  A failed group never fails the whole request.
+
+## 9. Interfaces
+
+### 9.1 HTTP (FastAPI)
+- `POST /v1/suggestions` — update mode.
+- `POST /v1/extractions` — extraction mode (no `current_values`).
+- `GET /healthz` — liveness. `GET /readyz` — pings the configured extraction model endpoint.
+- Synchronous request/response with configurable timeout. `request_id` is generated (or taken from an
+  `X-Request-ID` header) and echoed. No job API until the bus exists.
+- API request/response models are separate DTOs mapped to/from domain objects.
+
+### 9.2 Python library
+```python
+suggest_updates(request) -> SuggestionResult                 # sync wrapper
+await asuggest_updates(request) -> SuggestionResult          # async core
+await asuggest_updates_many(requests, max_concurrency=4) -> list[SuggestionResult | Failure]
+```
+(and the equivalent `extract_fields` / `aextract_fields` / `aextract_fields_many` for extraction mode)
+
+### 9.3 Concurrency
+- asyncio only (no threads).
+- Two configurable limits: concurrent requests, and concurrent LLM calls **globally** (across requests).
+
+### 9.4 Bus — **Parked**
+A `MessageBus` port and an in-process adapter will exist so that an external broker can replace it.
+Request/reply vs fire-and-forget, result delivery, retries, DLQ, idempotency and target broker are undecided.
+
+## 10. LLM and models
+
+- Settings via pydantic-settings (env / `.env`), prefix `OWL_`, nested delimiter `__`.
+- Models configured **per role**: `extraction` (now), `polishing`, `judge` (later). Unconfigured roles fall
+  back to `default`.
+- Per role: `PROVIDER` ∈ {`openai_compatible`, `azure_openai`, `openai`}, `NAME`/`DEPLOYMENT`, `BASE_URL` /
+  `AZURE_ENDPOINT` / `API_VERSION`, `API_KEY` (SecretStr), `CONTEXT_WINDOW`, `TEMPERATURE` (default 0),
+  `MAX_TOKENS`, `TIMEOUT`, `MAX_RETRIES`, `OUTPUT_MODE` ∈ {`native` (default), `tool`, `prompted`}.
+- A single `ModelFactory` (infrastructure) maps settings → pydantic_ai `Model`. No other module knows the provider.
+- Current provider: LM Studio via `openai_compatible`. Target swap: Azure OpenAI.
+- Token counting: `TokenCounter` port. Default: characters ÷ 3.5 with a 15% safety margin. `tiktoken`
+  counter available for OpenAI/Azure.
+- Prompts are versioned Jinja templates in `src/owl/infrastructure/llm/prompts/`; `prompt_version` is recorded.
+
+## 11. Observability
+
+- OpenTelemetry for traces, metrics and logs. Export via OTLP to an **OTel Collector**; the app never talks
+  to a backend directly. No endpoint configured → no-op.
+- Spans: `pipeline.select_fields`, `pipeline.select_context`, `pipeline.extract`, `pipeline.validate`,
+  `pipeline.reconcile` (per group where relevant). LLM spans via pydantic_ai instrumentation (GenAI
+  semantic conventions). FastAPI auto-instrumented.
+- Prompt/completion capture is off by default (`OWL_OTEL__CAPTURE_CONTENT=false`).
+- Metrics: requests/latency per endpoint; LLM calls/tokens/retries per role; dropped candidates by reason; truncations.
+- Logs: structured JSON (`structlog`) carrying `trace_id` and `request_id`.
+- Local stack (docker-compose): app + Collector + `grafana/otel-lgtm`, optional Arize Phoenix.
+  Production backend: undecided (likely Azure Monitor).
+- The domain layer has no OTel dependency.
+
+## 12. Architecture
+
+DDD, layered, enforced with import-linter:
+
+```
+src/owl/
+  domain/          pure Python + pydantic; no I/O, no pydantic_ai, no OTel, no FastAPI
+  application/     ports (Protocols), use cases, pipeline orchestration, service functions
+  infrastructure/  pydantic_ai agent, ModelFactory, prompts, context selectors, bus adapters,
+                   YAML catalog loader, telemetry, settings
+  entrypoints/     FastAPI app, CLI
+catalog/fields.yaml
+evals/             datasets/, comparators, runner, reports
+tests/             unit/, pipeline/, api/, contract/
+```
+
+Import rules:
+- `domain` imports nothing from `application`, `infrastructure`, `entrypoints`.
+- `application` imports only `domain`.
+- Only `infrastructure` imports `pydantic_ai`, `opentelemetry` exporters, `httpx`, `yaml`.
+- `entrypoints` wires everything together (composition root).
+
+## 13. Quality, CI and CD
+
+- Tooling: Python 3.12, uv, ruff (lint + format), pyright (strict on `domain/` and `application/`),
+  pytest, import-linter, pre-commit, Dependabot (uv + actions), Conventional Commits.
+- CI (GitHub Actions, every PR and push):
+  `uv sync --frozen` → ruff → pyright → pytest (coverage ≥ 85% on domain + application) → import-linter →
+  Docker build + Trivy scan (report-only) → eval job (**present but disabled**: `workflow_dispatch` only).
+- Tests never call a real LLM. Pipeline tests use pydantic_ai `FunctionModel`/`TestModel`.
+- CD: merge to `main` → push image to GHCR as `ghcr.io/<owner>/owl:sha-<short>` and `:main`;
+  tag `vX.Y.Z` → `:X.Y.Z` + `:latest` + GitHub Release. No deployment target yet.
+- Image: multi-stage, uv, `python:3.12-slim`, non-root, `HEALTHCHECK` on `/healthz`, configured by env only.
+
+## 14. Evaluation
+
+### 14.1 Golden set
+- Fully **synthetic** (no real data is used for now). Hand-authored by Claude during implementation,
+  committed frozen as versioned JSONL under `evals/datasets/`. A seeded generator may follow later.
+- Each case: true record → documents (invoices, contracts, emails, spreadsheets as text, adjuster reports)
+  with planted values → current values perturbed per field (`correct`, `missing`, `wrong`,
+  `correct_format_variant`) → expected output derived by construction.
+- Difficulty tags: `conflict`, `restated_old_value`, `format_variant`, `ocr_noise`, `long_bundle`.
+- Initial size ≈ 60 cases: 4 `(lob, business_type)` combinations × 2 modes × difficulty mix.
+
+### 14.2 Metrics
+Field-level matching on normalised values; free text via a pluggable `TextComparator` port
+(deterministic first: chrF by default, BLEU and token-F1 available; `LLMJudgeComparator` later via pydantic_evals).
+
+- Primary: suggestion **recall** (headline), suggestion precision, **false-change rate**.
+- Conflicts: recall, precision, false-conflict rate (on `restated_old_value`).
+- Evidence: document hit rate, `value_not_in_quote` flag rate.
+- Operational: retry rate and dropped-candidate rate by cause, truncation rate, latency p50/p95, tokens per request.
+- All sliced by `(lob, business_type)`, mode, group, field type, difficulty tag.
+- Output: pydantic_evals report + JSON summary per run (for future baselines).
+- Gating: **off for now**. Later gates: recall floor, false-change ceiling, retry-rate ceiling, thresholds
+  set from the first baseline.
+
+## 15. Data
+
+Synthetic data only. Prompt/completion capture off by default regardless.
+
+## 16. Parked (do not implement until decided here)
+
+- Bus semantics and target broker (§9.4).
+- Cross-field validation rules.
+- Formatting and polishing stage.
+- Hybrid retrieval selector (designed in §7.1, not scheduled).
+- `ClassifyBundle` (inferring LoB / business type).
+- `record` field type.
+- Eval gating thresholds; LLM-as-judge comparator.
+- Production observability backend.
+
+## 17. Change process
+
+1. Propose the change to the user; get explicit approval.
+2. Update this file in the feature branch, in the same PR as the code relying on it.
+3. Bump `catalog_version` / `prompt_version` when the catalog or prompts change.
