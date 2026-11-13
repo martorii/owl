@@ -10,6 +10,7 @@ grounded in verbatim quotes. Python 3.12, DDD, pydantic_ai, FastAPI.
 - **[specs/PLAN.md](specs/PLAN.md)** — the step-by-step plan. Work only on the current step.
 
 ## Workflow
+- Before each step, announce to the user exactly what will be done and wait for their go-ahead (see PLAN workflow).
 - One branch per PLAN step: `feat/<NN>-<slug>` from latest `main`.
 - Write tests first; keep to the step's scope; record out-of-scope findings under "Follow-ups" in specs/PLAN.md.
 - Gate before reporting: ruff, pyright, import-linter, pytest all green (commands below).
