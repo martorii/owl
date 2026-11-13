@@ -21,7 +21,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` merged
 
 ---
 
-## Step 00 — Bootstrap `[ ]`
+## Step 00 — Bootstrap `[~]`
 Branch: `feat/00-bootstrap`
 
 - `pyproject.toml` (uv, Python 3.12), package `src/owl/` with empty `domain/`, `application/`,
