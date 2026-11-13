@@ -4,16 +4,19 @@ Driven by [CONTRACT.md](CONTRACT.md). Each step is one feature branch.
 
 ## Workflow (applies to every step)
 
-1. Create the branch `feat/<NN>-<slug>` from the latest `main`.
-2. Implement the step test-first. Keep to its scope; anything else goes to "Follow-ups" below.
-3. **Gate**: all of the following must pass locally and in CI:
+1. **Announce the step before starting**: tell the user exactly what will be done (files/modules, public
+   interfaces, test list, design decisions and open questions, anything that looks underspecified in the
+   contract), and **wait for the user's go-ahead**. Do not create the branch or write code before that.
+2. Create the branch `feat/<NN>-<slug>` from the latest `main`.
+3. Implement the step test-first. Keep to its scope; anything else goes to "Follow-ups" below.
+4. **Gate**: all of the following must pass locally and in CI:
    - `uv run ruff check . && uv run ruff format --check .`
    - `uv run pyright`
    - `uv run lint-imports`
    - `uv run pytest` (with the step's listed tests present and green)
-4. Report to the user: what was built, test results, anything that deviated from the contract.
-5. **Only after the user accepts**: merge into `main` (PR, squash merge), delete the branch, tick the step below.
-6. Never start step N+1 before step N is merged.
+5. Report to the user: what was built, test results, anything that deviated from the contract.
+6. **Only after the user accepts**: merge into `main` (PR, squash merge), delete the branch, tick the step below.
+7. Never start step N+1 before step N is merged.
 
 If a step requires changing specs/CONTRACT.md, stop and ask the user first.
 
@@ -21,7 +24,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` merged
 
 ---
 
-## Step 00 — Bootstrap `[~]`
+## Step 00 — Bootstrap `[x]`
 Branch: `feat/00-bootstrap`
 
 - `pyproject.toml` (uv, Python 3.12), package `src/owl/` with empty `domain/`, `application/`,
