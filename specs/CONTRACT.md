@@ -123,7 +123,8 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 - `current_values` is required and may be empty in `update` mode; it is not accepted in `extraction` mode.
 - `current_values` keys must be catalog field names; unknown names → `422` **(default)**. Fields not active
   for the request are ignored with a warning **(default)**. Values are parsed with the field's type
-  parser; unparseable values → `422` **(default)**.
+  parser; unparseable values → `422` **(default)**. A `null` value means "no current value": it is treated as
+  absent, without a warning.
 
 ### 5.2 Internal short IDs
 
@@ -148,7 +149,7 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
       "evidence": [
         {"document_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "filename": "slip.pdf", "quote": "Period: 01/03/2026 to 28/02/2027", "match": "exact"}
       ],
-      "rationale": "The slip states a 1 March inception.",
+      "rationales": ["The slip states a 1 March inception."],
       "confidence": 0.86,
       "flags": []
     }
@@ -158,8 +159,8 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
       "field": "limit",
       "current_value": {"amount": "5000000", "currency": "USD"},
       "candidates": [
-        {"value": {"amount": "5000000", "currency": "USD"}, "evidence": [], "rationale": "…", "confidence": 0.7, "flags": []},
-        {"value": {"amount": "7500000", "currency": "USD"}, "evidence": [], "rationale": "…", "confidence": 0.8, "flags": []}
+        {"value": {"amount": "5000000", "currency": "USD"}, "is_current": true, "evidence": [], "rationales": ["…"], "confidence": 0.7, "flags": []},
+        {"value": {"amount": "7500000", "currency": "USD"}, "is_current": false, "evidence": [], "rationales": ["…"], "confidence": 0.8, "flags": []}
       ]
     }
   ],
@@ -178,6 +179,9 @@ Rules:
 - `match` ∈ {`exact`, `fuzzy`}. A fuzzy-matched quote is replaced by the actual source text.
 - `confidence` is the model's self-report (max over merged candidates). It is informational only: **not used
   for filtering, sorting or any other decision**.
+- `rationales` lists the rationale of every merged candidate (§7.3); a conflict candidate's `is_current` is
+  true when its value equals the field's current value.
+- Output order: suggestions and conflicts follow the catalog order of the active fields.
 - `flags` currently only contains `value_not_in_quote` (§8.3).
 - In `extraction` mode the shape is identical; all actions are `add` and `current_value` is `null`.
 - Warning codes (initial set): `candidate_dropped`, `document_truncated`, `document_skipped`, `group_failed`,
@@ -247,7 +251,7 @@ validate request → select active fields → group fields
 }
 ```
 
-- Fields not found are **omitted** (never `null`).
+- Fields not found are **omitted** (never `null`). A candidate `value` of `null` is not allowed.
 - `value` is typed per field (the per-group output model is built dynamically from the active fields).
 - **Normalisation is two-layered.** The LLM is the first layer: it is asked to return each value already in
   the canonical form. The domain is the second and authoritative layer: every returned value goes through
@@ -264,6 +268,15 @@ Per field:
 2. One distinct value ≠ current → suggestion (`add` if current is absent, else `change`).
 3. One distinct value = current → nothing.
 4. ≥ 2 distinct values → conflict.
+
+Merging candidates with equal normalised values:
+- Value shown: the spelling of the highest-confidence candidate (first one on ties); `confidence` = max.
+- Rationales: all kept, trimmed, blank ones dropped, exact duplicates removed, in input order.
+- Evidence: union in input order; entries with the same `(document_id, quote)` are one entry (the first is
+  kept, including its `match`). Deliberately simple; smarter de-duplication (overlapping quotes) may follow.
+- Flags: union.
+- In a conflict, each distinct value is one merged candidate in first-seen order, marked `is_current` when it
+  equals the current value.
 
 Known accepted limitation: restated old values ("previously USD 5m, now USD 7.5m") produce false conflicts;
 they are measured in evals and left to the reviewer.
