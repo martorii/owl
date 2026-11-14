@@ -446,7 +446,26 @@ Import rules:
 - Expected output is what a correct reviewer would accept, i.e. `reconcile` applied to the **true record**
   and the current values. For `restated_old_value` cases that is the single correct suggestion; a conflict
   returned by the system there counts as a false conflict (the accepted limitation of §7.3, made visible).
-- Initial size ≈ 60 cases: 4 `(lob, business_type)` combinations × 2 modes × difficulty mix.
+- Initial size 64 cases (`evals/datasets/v1/`): 4 `(lob, business_type)` combinations × 2 modes × 8 cases; in each
+  of these 8 cells every difficulty tag appears at least once. Two cases are fully silent (no evidence at all).
+- Case format: `evals/schema.py` (`GoldenCase`, JSON schema in `case.schema.json`), checked by
+  `evals/validate_dataset.py`. Documents carry a `document_date` and are stored oldest first (§5.2).
+  `true_record` holds the correct value of a subset of the active fields (not all of them).
+  `planted` lists every quote with a role: `true`, `conflicting`, `superseded` (older value in an
+  earlier-dated document; the supersession guardrail of §7.3 must drop it), `restated_old` (an old value
+  restated in the same sentence as the new one) or `distractor` (another policy, party or period).
+- `expected` is `reconcile` applied to the planted `true`, `conflicting` and `superseded` candidates and the
+  current values. It is stored as values only (no evidence), since metrics compare field and value. The
+  validator recomputes it and also checks it against an independent rule (missing → add, wrong → change,
+  correct → nothing, conflicting planted → conflict).
+- A planted `conflict` is two quotes with the **same document date** (a tie is a conflict, §7.3); a value in
+  a later document would supersede the other and is therefore not a conflict case.
+- `wrong` current values are plausible values of the same type; `correct_format_variant` is a differently
+  spelled value that the domain parser reads as the true one.
+- Documents are English. `long_bundle` means ≥ 8 documents (about 3,000 words); there is no separate size
+  threshold.
+- The files of a version directory are frozen once accepted (a checksum test enforces it); a regeneration
+  goes into a new directory (`v2/`).
 
 ### 14.2 Metrics
 Field-level matching on normalised values; free text via a pluggable `TextComparator` port

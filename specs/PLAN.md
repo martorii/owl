@@ -127,7 +127,7 @@ Inserted after step 04 (user request): later documents must win when documents d
 
 ---
 
-## Step 05 — Synthetic golden set `[ ]`
+## Step 05 — Synthetic golden set `[~]`
 Branch: `feat/05-golden-set`
 
 Moved ahead of the LLM steps: it depends only on the domain, and the extraction prompt (step 08) is then
@@ -295,3 +295,8 @@ Branch: `feat/13-eval-harness`
 - Still undefined in the contract, deliberately left for later: error response body shape, authentication,
   request size limits, `null` in `current_values`, duplicate / foreign `field_id` in LLM output, scope of the
   "global" LLM limit with several workers, a no-logging rule for document text, output ordering.
+- Step 05: natural-language booleans ("The premises are not protected by a sprinkler system.") never contain a
+  yes/no token, so the soft value-in-quote check (§8.3) flags them: 16 of the 36 planted bool values. Decide
+  whether §8.3 should skip `bool` fields or the prompt should ask for a short quote with the key phrase.
+- Step 05: the 64 cases were composed by a one-off script from hand-written pools and per-tag recipes (kept out
+  of the repo); a seeded generator in the repo, if wanted, is a separate step.

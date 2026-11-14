@@ -1,0 +1,308 @@
+{
+  "$defs": {
+    "Action": {
+      "enum": [
+        "add",
+        "change"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "BusinessType": {
+      "enum": [
+        "direct",
+        "reinsurance"
+      ],
+      "title": "BusinessType",
+      "type": "string"
+    },
+    "CurrentKind": {
+      "enum": [
+        "correct",
+        "missing",
+        "wrong",
+        "correct_format_variant"
+      ],
+      "title": "CurrentKind",
+      "type": "string"
+    },
+    "DocumentType": {
+      "enum": [
+        "contract",
+        "slip",
+        "endorsement",
+        "email",
+        "claims_report",
+        "other"
+      ],
+      "title": "DocumentType",
+      "type": "string"
+    },
+    "Expected": {
+      "additionalProperties": false,
+      "properties": {
+        "suggestions": {
+          "items": {
+            "$ref": "#/$defs/ExpectedSuggestion"
+          },
+          "title": "Suggestions",
+          "type": "array"
+        },
+        "conflicts": {
+          "items": {
+            "$ref": "#/$defs/ExpectedConflict"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "suggestions",
+        "conflicts"
+      ],
+      "title": "Expected",
+      "type": "object"
+    },
+    "ExpectedConflict": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "current_value": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "current_value",
+        "values"
+      ],
+      "title": "ExpectedConflict",
+      "type": "object"
+    },
+    "ExpectedSuggestion": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/Action"
+        },
+        "current_value": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "proposed_value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "field",
+        "action",
+        "current_value",
+        "proposed_value"
+      ],
+      "title": "ExpectedSuggestion",
+      "type": "object"
+    },
+    "GoldenDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "filename": {
+          "title": "Filename",
+          "type": "string"
+        },
+        "document_type": {
+          "$ref": "#/$defs/DocumentType"
+        },
+        "document_date": {
+          "format": "date",
+          "title": "Document Date",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_id",
+        "filename",
+        "document_type",
+        "document_date",
+        "text"
+      ],
+      "title": "GoldenDocument",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "Lob": {
+      "description": "Line of business.",
+      "enum": [
+        "casualty",
+        "property"
+      ],
+      "title": "Lob",
+      "type": "string"
+    },
+    "Mode": {
+      "enum": [
+        "update",
+        "extraction"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "Planted": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/PlantedRole"
+        },
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "field",
+        "role",
+        "document_id",
+        "quote",
+        "value"
+      ],
+      "title": "Planted",
+      "type": "object"
+    },
+    "PlantedRole": {
+      "description": "What a planted quote is, relative to the true record.\n\n``true`` and ``conflicting`` are what an ideal extractor reports as candidates.\n``superseded`` is an older value in an earlier-dated document, which the supersession\nguardrail (\u00a77.3) must drop.\n``restated_old`` is an old value restated inside the document that also gives the new one (an\nideal extractor reports only the new value). ``distractor`` belongs to another policy, party or\nperiod.",
+      "enum": [
+        "true",
+        "conflicting",
+        "superseded",
+        "restated_old",
+        "distractor"
+      ],
+      "title": "PlantedRole",
+      "type": "string"
+    },
+    "Tag": {
+      "enum": [
+        "conflict",
+        "restated_old_value",
+        "format_variant",
+        "ocr_noise",
+        "long_bundle",
+        "no_evidence",
+        "distractor"
+      ],
+      "title": "Tag",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "lob": {
+      "$ref": "#/$defs/Lob"
+    },
+    "business_type": {
+      "$ref": "#/$defs/BusinessType"
+    },
+    "mode": {
+      "$ref": "#/$defs/Mode"
+    },
+    "tags": {
+      "items": {
+        "$ref": "#/$defs/Tag"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "documents": {
+      "items": {
+        "$ref": "#/$defs/GoldenDocument"
+      },
+      "minItems": 1,
+      "title": "Documents",
+      "type": "array"
+    },
+    "true_record": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "True Record",
+      "type": "object"
+    },
+    "current_values": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Current Values",
+      "type": "object"
+    },
+    "current_kinds": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CurrentKind"
+      },
+      "title": "Current Kinds",
+      "type": "object"
+    },
+    "planted": {
+      "items": {
+        "$ref": "#/$defs/Planted"
+      },
+      "title": "Planted",
+      "type": "array"
+    },
+    "expected": {
+      "$ref": "#/$defs/Expected"
+    }
+  },
+  "required": [
+    "case_id",
+    "lob",
+    "business_type",
+    "mode",
+    "tags",
+    "documents",
+    "true_record",
+    "current_values",
+    "current_kinds",
+    "planted",
+    "expected"
+  ],
+  "title": "GoldenCase",
+  "type": "object"
+}
