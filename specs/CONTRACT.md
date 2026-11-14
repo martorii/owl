@@ -22,7 +22,7 @@ so the system favours **recall over precision**: it is better to suggest than to
 |---|---|
 | **Bundle** | The set of documents submitted in one request. |
 | **Document** | One OCR'd text with `filename` and `document_type`. |
-| **Document type** | One of `invoice`, `contract`, `email`, `spreadsheet`, `adjuster_report`, `other` **(default: `other`)**. |
+| **Document type** | A value of `DocumentType` in `owl.domain.taxonomy` **(default: `other`)**. |
 | **LoB** | Line of business: `casualty` or `property`. |
 | **Business type** | `direct` or `reinsurance`. |
 | **Catalog** | The versioned YAML list of field definitions. |
@@ -40,8 +40,8 @@ so the system favours **recall over precision**: it is better to suggest than to
   catalog fails startup.
 - The catalog carries a `version`: a positive integer, bumped on every change. Every response, trace and eval run
   records it.
-- Closed vocabularies: `lob` ∈ {`casualty`, `property`}; `business_type` ∈ {`direct`, `reinsurance`};
-  document type ∈ {`contract`, `slip`, `endorsement`, `email`, `claims_report`, `other`}.
+- Closed vocabularies (`Lob`, `BusinessType`, `DocumentType`) are defined once, in `owl.domain.taxonomy`; the
+  catalog and requests may only use those values.
 - Field definition:
 
 ```yaml
@@ -235,8 +235,9 @@ Implemented as pydantic_ai output validators raising `ModelRetry`.
 3. **No match** → `ModelRetry`.
 
 ### 8.3 Value-in-quote check (soft)
-The field's type parser must find the proposed value in at least one quote. If not, the candidate is
-kept with flag `value_not_in_quote`.
+The field's type parser must find the proposed value in at least one quote. For a `list` value, every item
+must be found in at least one quote (not necessarily the same one). If not, the candidate is kept with flag
+`value_not_in_quote`.
 
 ### 8.4 Retry policy
 - One `ModelRetry` message lists **all** failures of that output.

@@ -71,7 +71,7 @@ Branch: `feat/02-catalog`
 
 ---
 
-## Step 03 — Bundle and evidence `[ ]`
+## Step 03 — Bundle and evidence `[~]`
 Branch: `feat/03-bundle-evidence`
 
 - `domain/bundle.py`: `Document`, `DocumentBundle`, `DocumentType`, short `D` IDs, default `doc-<index>` IDs.
