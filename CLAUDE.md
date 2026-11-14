@@ -25,16 +25,17 @@ uv run pytest                           # tests
 uv run ruff check . && uv run ruff format --check .
 uv run pyright
 uv run lint-imports                     # layer rules
-uv run uvicorn owl.entrypoints.api.app:app --reload   # API (from step 08)
+uv run uvicorn owl.entrypoints.api.app:app --reload   # API (from step 10)
 ```
 
 ## Architecture rules (enforced by import-linter)
-- `owl.domain`: pure Python + pydantic. No I/O, no pydantic_ai, no FastAPI, no OTel, no YAML.
+- `owl.domain`: pure Python + pydantic + rapidfuzz. No I/O, no pydantic_ai, no FastAPI, no OTel, no YAML.
 - `owl.application`: ports (`typing.Protocol`) and use cases; imports only `domain`.
 - `owl.infrastructure`: the only place that imports pydantic_ai, OTel exporters, httpx, yaml.
 - `owl.entrypoints`: FastAPI/CLI; composition root that wires adapters into the application.
 - API DTOs are separate from domain models.
-- Business decisions (normalisation, "is this a change", conflicts) live in the domain, never in prompts or the LLM.
+- Business decisions (canonical normalisation, "is this a change", conflicts) live in the domain, never in
+  prompts or the LLM. The LLM may pre-normalise values, but the domain parser always has the last word.
 
 ## Conventions
 - Async-first core; sync functions are thin wrappers. asyncio only, no threads.
