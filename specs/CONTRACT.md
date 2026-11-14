@@ -109,7 +109,7 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
   "lob": "property",
   "business_type": "reinsurance",
   "documents": [
-    {"document_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "filename": "slip.pdf", "document_type": "contract", "text": "..."}
+    {"document_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "filename": "slip.pdf", "document_type": "contract", "document_date": "2026-02-14", "text": "..."}
   ],
   "current_values": {"policy_inception_date": "2026-01-01"}
 }
@@ -118,6 +118,8 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 - `lob` and `business_type` are **required**. No inference (a `ClassifyBundle` step may be added later).
 - `documents` must be non-empty; each `text` must be non-blank. `document_type` is **required** (use `other`
   when unknown).
+- `document_date` is **required**: the ISO date (`YYYY-MM-DD`) of the document itself (letter or email date,
+  effective date), not an upload date. Missing or malformed → `422`.
 - `document_id` is **required**: the document's UUID, supplied by the caller. It is the only identifier of a
   document and is what evidence returns. Duplicate or malformed UUIDs → `422`.
 - `current_values` is required and may be empty in `update` mode; it is not accepted in `extraction` mode.
@@ -128,7 +130,10 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 
 ### 5.2 Internal short IDs
 
-- In prompts, documents are labelled `D1, D2, …` and active fields `F1, F2, …` (catalog order).
+- Documents are sorted **chronologically, oldest first and latest last** (stable: same date keeps input
+  order). This is done by the domain bundle, so everything downstream sees the sorted order.
+- In prompts, documents are labelled `D1, D2, …` (in that chronological order, so a higher number is never an
+  earlier document) and active fields `F1, F2, …` (catalog order). Each document is shown with its date.
 - The mapping is per request and lives in the domain. Short IDs are prompt labels, not identifiers (a document is
   identified only by its UUID), and never appear in responses.
 
@@ -174,7 +179,8 @@ Rules:
 - `action` ∈ {`add`, `change`}. There is **no `confirm`** and **no `remove`**.
 - Only changes are output: a field whose single found value equals the current value produces nothing.
 - A field appears in **either** `suggestions` **or** `conflicts`, never both.
-- A conflict is reported whenever ≥ 2 distinct normalised values are found, **even if one equals the current value**.
+- A conflict is reported whenever ≥ 2 distinct normalised values remain after supersession (§7.3), **even if
+  one equals the current value**.
 - `evidence` has at least one entry; candidates with no valid evidence are dropped.
 - `match` ∈ {`exact`, `fuzzy`}. A fuzzy-matched quote is replaced by the actual source text.
 - `confidence` is the model's self-report (max over merged candidates). It is informational only: **not used
@@ -185,7 +191,7 @@ Rules:
 - `flags` currently only contains `value_not_in_quote` (§8.3).
 - In `extraction` mode the shape is identical; all actions are `add` and `current_value` is `null`.
 - Warning codes (initial set): `candidate_dropped`, `document_truncated`, `document_skipped`, `group_failed`,
-  `field_inactive_ignored`.
+  `field_inactive_ignored`, `candidate_superseded`.
 
 ### 6.1 Value serialisation
 
@@ -217,9 +223,11 @@ validate request → select active fields → group fields
 
 - Port: `ContextSelector.select(group, bundle, budget) -> ExtractionContext`.
 - First implementation, `TypeFilterSelector`:
-  1. Order all documents: first those whose type is in any of the group's `preferred_document_types`, then
-     the rest; input order within each tier. No document is excluded by type alone (recall over precision).
-  2. Add whole documents in that order until the token budget is reached.
+  1. Order all documents for *inclusion priority*: first those whose type is in any of the group's
+     `preferred_document_types`, then the rest; within each tier, newest first (so that the documents the
+     budget drops are the oldest). No document is excluded by type alone (recall over precision).
+  2. Add whole documents in that order until the token budget is reached. The included documents are then
+     presented to the model in chronological order (§5.2), not in inclusion order.
   3. A document larger than the remaining budget is cut at the end (keeps the start), with a
      `document_truncated` warning.
   4. Every document left out entirely once the budget is exhausted produces a `document_skipped` warning
@@ -259,7 +267,10 @@ validate request → select active fields → group fields
   `"01/03/2026"`, `"15 %"`). The output model is therefore lenient: it accepts the canonical form or a plain
   string for any type. All "change" and "conflict" decisions use the domain-normalised value only.
 - A value the domain parser cannot parse is a validation failure (§8.1).
-- The model is instructed to report **every** distinct value it finds, not to resolve disagreements.
+- The documents are presented oldest to latest, each with its date. The model is instructed to report every
+  distinct value it finds, with one exception: when a **later** document explicitly restates, amends or
+  replaces a value from an earlier one, it reports only the later value. Where documents merely disagree,
+  with no sign of supersession, it reports both. (The domain guardrail of §7.3 backs this up.)
 
 ### 7.3 Reconciliation (domain, deterministic)
 
@@ -268,6 +279,14 @@ Per field:
 2. One distinct value ≠ current → suggestion (`add` if current is absent, else `change`).
 3. One distinct value = current → nothing.
 4. ≥ 2 distinct values → conflict.
+
+Supersession guardrail, applied before steps 2–4: a candidate value's *date* is the latest date among the
+documents in its evidence. A value whose date is **older** than that of another value for the same field is
+superseded and dropped, with a `candidate_superseded` warning. Values tied for the latest date remain and are
+reconciled as above (a tie is a conflict). Consequences: an older value equal to the current value does not
+prevent a `change`; a latest value equal to the current value produces no suggestion. A value that a later
+document merely restates keeps that later date. Known risk: a wrong later document hides a correct earlier one
+(the warning makes this visible).
 
 Merging candidates with equal normalised values:
 - Value shown: the spelling of the highest-confidence candidate (first one on ties); `confidence` = max.

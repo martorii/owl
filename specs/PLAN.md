@@ -113,6 +113,20 @@ Branch: `feat/04-reconciliation`
 
 ---
 
+## Step 04.1 — Document dates and supersession `[x]`
+Branch: `feat/04-1-document-dates`
+
+Inserted after step 04 (user request): later documents must win when documents disagree.
+
+- `Document.document_date` (required); `DocumentBundle` sorts chronologically, oldest first (stable).
+- `Evidence.document_date`; `reconcile` supersession guardrail + `candidate_superseded` warning (CONTRACT §7.3).
+- CONTRACT §5.1, §5.2, §6, §7.1, §7.2, §7.3 updated. Carried into later steps: selector priority newest-first
+  within tier, presented chronologically (step 06); prompt shows each document's date and carries the
+  supersession instruction (step 08); request DTO has `document_date` (step 10); golden-set documents have dates
+  (step 05).
+
+---
+
 ## Step 05 — Synthetic golden set `[ ]`
 Branch: `feat/05-golden-set`
 
