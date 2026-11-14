@@ -71,10 +71,10 @@ Branch: `feat/02-catalog`
 
 ---
 
-## Step 03 — Bundle and evidence `[ ]`
+## Step 03 — Bundle and evidence `[x]`
 Branch: `feat/03-bundle-evidence`
 
-- `domain/bundle.py`: `Document`, `DocumentBundle`, `DocumentType`, short `D` IDs, default `doc-<index>` IDs.
+- `domain/bundle.py`: `Document`, `DocumentBundle`, `DocumentType`, UUID `document_id` (required, unique), prompt-only short `D` IDs.
 - `domain/evidence.py`: text normaliser and `QuoteMatcher` (exact → fuzzy ≥ 25 chars → no match),
   returning the matched source span (CONTRACT §8.2).
 - Value-in-quote check (§8.3).
