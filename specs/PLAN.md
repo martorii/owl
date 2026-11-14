@@ -89,7 +89,7 @@ Branch: `feat/03-bundle-evidence`
 
 ---
 
-## Step 04 — Reconciliation `[~]`
+## Step 04 — Reconciliation `[x]`
 Branch: `feat/04-reconciliation`
 
 - `domain/suggestions.py`: `Candidate`, `Evidence`, `UpdateSuggestion`, `Conflict`, `PipelineWarning`
