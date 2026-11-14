@@ -39,7 +39,7 @@ Branch: `feat/00-bootstrap`
 
 ---
 
-## Step 01 — Field value types `[ ]`
+## Step 01 — Field value types `[~]`
 Branch: `feat/01-value-types`
 
 - `domain/values.py`: `FieldType` enum; per-type parser/normaliser and equality (CONTRACT §4), including

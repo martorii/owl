@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "pydantic>=2.8",
     "pydantic-ai-slim>=0.0.50",
+    "rapidfuzz>=3.14.6",
 ]
 
 [dependency-groups]
@@ -45,6 +46,7 @@ strict = ["src/owl/domain", "src/owl/application"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = "--cov=owl.domain --cov=owl.application --cov-report=term-missing:skip-covered"
 
 [tool.coverage.report]
