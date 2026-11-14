@@ -38,11 +38,14 @@ so the system favours **recall over precision**: it is better to suggest than to
 
 - Lives in `catalog/fields.yaml`, loaded at startup into typed domain `FieldDefinition` objects. A malformed
   catalog fails startup.
-- The catalog carries a `version` string. Every response, trace and eval run records it.
+- The catalog carries a `version`: a positive integer, bumped on every change. Every response, trace and eval run
+  records it.
+- Closed vocabularies: `lob` ∈ {`casualty`, `property`}; `business_type` ∈ {`direct`, `reinsurance`};
+  document type ∈ {`contract`, `slip`, `endorsement`, `email`, `claims_report`, `other`}.
 - Field definition:
 
 ```yaml
-version: "2026-11-13.1"
+version: 1
 fields:
   - name: policy_inception_date          # unique, snake_case
     type: date                           # see §4
@@ -115,7 +118,7 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 ```json
 {
   "request_id": "…",
-  "catalog_version": "2026-11-13.1",
+  "catalog_version": 1,
   "prompt_version": "…",
   "mode": "update",
   "suggestions": [

@@ -1,0 +1,304 @@
+# OWL field catalog (CONTRACT section 3). Bump `version` whenever this file changes.
+# First draft: to be reviewed and later replaced by the real catalog; no code changes needed.
+version: 1
+fields:
+  - name: insured_name
+    type: string
+    description: Legal name of the insured party (the policyholder, or the original insured for reinsurance).
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: parties
+    preferred_document_types: [contract, slip, endorsement]
+  - name: broker_name
+    type: string
+    description: Name of the broker or intermediary that placed the business.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: parties
+    preferred_document_types: [slip, email, contract]
+  - name: insurer_name
+    type: string
+    description: Legal name of the insurer issuing the policy.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct]
+    group: parties
+    preferred_document_types: [contract, slip]
+  - name: cedant_name
+    type: string
+    description: Legal name of the ceding insurer (cedant) that transfers risk under the reinsurance contract.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: parties
+    preferred_document_types: [contract, slip]
+  - name: reinsurer_name
+    type: string
+    description: Legal name of the reinsurer accepting the risk.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: parties
+    preferred_document_types: [contract, slip]
+  - name: policy_number
+    type: string
+    description: Policy, certificate or contract reference number assigned by the insurer or reinsurer.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip, endorsement]
+  - name: policy_inception_date
+    type: date
+    description: Start date of the policy or treaty period.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip, email]
+  - name: policy_expiry_date
+    type: date
+    description: End date of the policy or treaty period.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip, email]
+  - name: original_currency
+    type: enum
+    allowed_values: [USD, EUR, GBP, CHF, CAD, AUD, JPY]
+    description: Currency in which limits, premium and losses are expressed (ISO 4217 code).
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip]
+  - name: governing_law
+    type: string
+    description: Governing law or jurisdiction that applies to the contract.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract]
+  - name: cancellation_notice_days
+    type: integer
+    description: Number of days of notice required to cancel the policy or treaty.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract]
+  - name: auto_renewal
+    type: bool
+    description: Whether the policy renews automatically at expiry unless cancelled.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct]
+    group: policy_terms
+    preferred_document_types: [contract, endorsement]
+  - name: installment_dates
+    type: list
+    item_type: date
+    ordered: true
+    description: Premium instalment due dates, in the order of the payment schedule.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct]
+    group: policy_terms
+    preferred_document_types: [contract, endorsement]
+  - name: territorial_scope
+    type: list
+    item_type: string
+    ordered: false
+    description: Countries or territories in which the cover applies.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip]
+  - name: treaty_type
+    type: enum
+    allowed_values: [quota_share, surplus, excess_of_loss, stop_loss]
+    description: Structure of the reinsurance treaty.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip]
+  - name: treaty_basis
+    type: enum
+    allowed_values: [losses_occurring, risks_attaching]
+    description: Basis on which losses attach to the treaty.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: policy_terms
+    preferred_document_types: [contract, slip]
+  - name: limit
+    type: money
+    description: Maximum amount payable per loss or occurrence under the cover (limit of liability).
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: financials
+    preferred_document_types: [contract, slip, endorsement]
+  - name: deductible
+    type: money
+    description: Amount the insured retains per loss before the insurer pays (deductible or excess).
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct]
+    group: financials
+    preferred_document_types: [contract, slip, endorsement]
+  - name: premium
+    type: money
+    description: Total premium payable for the policy or treaty period.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: financials
+    preferred_document_types: [contract, slip, email]
+  - name: brokerage
+    type: percentage
+    description: Brokerage as a percentage of premium.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: financials
+    preferred_document_types: [contract, slip, email]
+  - name: retention
+    type: money
+    description: Amount of each loss retained by the cedant before the reinsurer responds.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: financials
+    preferred_document_types: [contract, slip]
+  - name: ceding_commission
+    type: percentage
+    description: Commission paid by the reinsurer to the cedant, as a percentage of ceded premium.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: financials
+    preferred_document_types: [contract, slip]
+  - name: reinsurer_share
+    type: percentage
+    description: Share of the risk accepted by the reinsurer (written line).
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: financials
+    preferred_document_types: [slip, contract]
+  - name: rate_on_line
+    type: decimal
+    description: Ratio of premium to limit for the layer (rate on line).
+    applies_to:
+      lob: [casualty, property]
+      business_type: [reinsurance]
+    group: financials
+    preferred_document_types: [slip, contract]
+  - name: sum_insured
+    type: money
+    description: Total sum insured or total insured value of the property at risk.
+    applies_to:
+      lob: [property]
+      business_type: [direct, reinsurance]
+    group: property_risk
+    preferred_document_types: [contract, slip, endorsement]
+  - name: location_address
+    type: string
+    description: Address of the insured risk location.
+    applies_to:
+      lob: [property]
+      business_type: [direct, reinsurance]
+    group: property_risk
+    preferred_document_types: [contract, slip]
+  - name: construction_type
+    type: enum
+    allowed_values: [masonry, concrete, steel, timber, other]
+    description: Main construction material of the insured building.
+    applies_to:
+      lob: [property]
+      business_type: [direct, reinsurance]
+    group: property_risk
+    preferred_document_types: [contract, slip]
+  - name: year_built
+    type: integer
+    description: Year in which the insured building was constructed.
+    applies_to:
+      lob: [property]
+      business_type: [direct, reinsurance]
+    group: property_risk
+    preferred_document_types: [contract, slip]
+  - name: sprinklered
+    type: bool
+    description: Whether the insured premises are protected by a sprinkler system.
+    applies_to:
+      lob: [property]
+      business_type: [direct, reinsurance]
+    group: property_risk
+    preferred_document_types: [contract, slip]
+  - name: perils_covered
+    type: list
+    item_type: enum
+    ordered: false
+    allowed_values: [fire, flood, earthquake, windstorm, theft, terrorism, business_interruption]
+    description: Perils covered by the policy.
+    applies_to:
+      lob: [property]
+      business_type: [direct, reinsurance]
+    group: property_risk
+    preferred_document_types: [contract, slip]
+  - name: liability_basis
+    type: enum
+    allowed_values: [claims_made, occurrence]
+    description: Trigger on which liability cover responds.
+    applies_to:
+      lob: [casualty]
+      business_type: [direct, reinsurance]
+    group: casualty_risk
+    preferred_document_types: [contract, slip]
+  - name: retroactive_date
+    type: date
+    description: Date before which wrongful acts are not covered (claims-made policies).
+    applies_to:
+      lob: [casualty]
+      business_type: [direct, reinsurance]
+    group: casualty_risk
+    preferred_document_types: [contract, slip, endorsement]
+  - name: aggregate_limit
+    type: money
+    description: Maximum total amount payable for all losses in the policy period.
+    applies_to:
+      lob: [casualty]
+      business_type: [direct, reinsurance]
+    group: casualty_risk
+    preferred_document_types: [contract, slip]
+  - name: defence_costs_inside_limit
+    type: bool
+    description: Whether defence costs erode the limit of liability.
+    applies_to:
+      lob: [casualty]
+      business_type: [direct, reinsurance]
+    group: casualty_risk
+    preferred_document_types: [contract]
+  - name: reported_claims_count
+    type: integer
+    description: Number of claims reported in the loss history period.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: claims
+    preferred_document_types: [claims_report, email]
+  - name: largest_loss_amount
+    type: money
+    description: Amount of the largest single loss in the loss history period.
+    applies_to:
+      lob: [casualty, property]
+      business_type: [direct, reinsurance]
+    group: claims
+    preferred_document_types: [claims_report, email]
