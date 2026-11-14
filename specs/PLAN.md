@@ -113,7 +113,7 @@ Branch: `feat/04-reconciliation`
 
 ---
 
-## Step 04.1 — Document dates and supersession `[~]`
+## Step 04.1 — Document dates and supersession `[x]`
 Branch: `feat/04-1-document-dates`
 
 Inserted after step 04 (user request): later documents must win when documents disagree.
