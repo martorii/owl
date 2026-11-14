@@ -93,7 +93,7 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
   "lob": "property",
   "business_type": "reinsurance",
   "documents": [
-    {"document_id": "client-123", "filename": "slip.pdf", "document_type": "contract", "text": "..."}
+    {"document_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "filename": "slip.pdf", "document_type": "contract", "text": "..."}
   ],
   "current_values": {"policy_inception_date": "2026-01-01"}
 }
@@ -101,8 +101,8 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 
 - `lob` and `business_type` are **required**. No inference (a `ClassifyBundle` step may be added later).
 - `documents` must be non-empty; each `text` must be non-empty.
-- `document_id` is optional **(default)**. If absent, the system assigns `doc-<index>` (0-based input order).
-  This is the identifier returned in evidence.
+- `document_id` is **required**: the document's UUID, supplied by the caller. It is the only identifier of a
+  document and is what evidence returns. Duplicate or malformed UUIDs → `422`.
 - `current_values` is required and may be empty in `update` mode; it is not accepted in `extraction` mode.
 - `current_values` keys must be catalog field names; unknown names → `422` **(default)**. Fields not active
   for the request are ignored with a warning **(default)**. Values are parsed with the field's type
@@ -111,7 +111,8 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 ### 5.2 Internal short IDs
 
 - In prompts, documents are labelled `D1, D2, …` and active fields `F1, F2, …` (catalog order).
-- The mapping is per request and lives in the domain. Short IDs never appear in responses.
+- The mapping is per request and lives in the domain. Short IDs are prompt labels, not identifiers (a document is
+  identified only by its UUID), and never appear in responses.
 
 ## 6. Output
 
@@ -128,7 +129,7 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
       "current_value": "2026-01-01",
       "proposed_value": "2026-03-01",
       "evidence": [
-        {"document_id": "client-123", "filename": "slip.pdf", "quote": "Period: 01/03/2026 to 28/02/2027", "match": "exact"}
+        {"document_id": "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b", "filename": "slip.pdf", "quote": "Period: 01/03/2026 to 28/02/2027", "match": "exact"}
       ],
       "rationale": "The slip states a 1 March inception.",
       "confidence": 0.86,
