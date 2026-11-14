@@ -22,7 +22,7 @@ so the system favours **recall over precision**: it is better to suggest than to
 |---|---|
 | **Bundle** | The set of documents submitted in one request. |
 | **Document** | One OCR'd text with `filename` and `document_type`. |
-| **Document type** | A value of `DocumentType` in `owl.domain.taxonomy` **(default: `other`)**. |
+| **Document type** | A value of `DocumentType` in `owl.domain.taxonomy`: `contract`, `slip`, `endorsement`, `email`, `claims_report`, `other`. |
 | **LoB** | Line of business: `casualty` or `property`. |
 | **Business type** | `direct` or `reinsurance`. |
 | **Catalog** | The versioned YAML list of field definitions. |
@@ -41,7 +41,8 @@ so the system favours **recall over precision**: it is better to suggest than to
 - The catalog carries a `version`: a positive integer, bumped on every change. Every response, trace and eval run
   records it.
 - Closed vocabularies (`Lob`, `BusinessType`, `DocumentType`) are defined once, in `owl.domain.taxonomy`; the
-  catalog and requests may only use those values.
+  catalog and requests may only use those values. Document types: `contract`, `slip`, `endorsement`, `email`,
+  `claims_report`, `other`.
 - Field definition:
 
 ```yaml
@@ -74,13 +75,28 @@ Closed set. Each type has a **parser/normaliser** and an **equality** rule in th
 |---|---|---|
 | `string` | trimmed, whitespace collapsed | equal case-insensitively |
 | `integer` | `int` (thousands separators removed) | exact |
-| `decimal` | `Decimal` | equal within configured precision |
+| `decimal` | `Decimal`, rounded half-up to the configured precision (default 6 places) | exact after rounding |
 | `bool` | `true`/`false` (from yes/no, Y/N, true/false, …) | exact |
 | `date` | ISO `YYYY-MM-DD` | exact |
 | `money` | `{amount: Decimal, currency: ISO-4217}` | amount and currency equal |
 | `percentage` | `Decimal` fraction (`15%` → `0.15`) | exact |
-| `enum` | one of `allowed_values` | exact |
+| `enum` | one of `allowed_values` (matched leniently, see below) | exact |
 | `list` | list of `item_type` values | as a set; as a sequence if `ordered: true` |
+
+Parsing rules (the domain parsers are lenient on input, strict on the normalised form):
+
+- **Numbers** are locale-tolerant: `1,000.50`, `1.000,50`, `1 000,50` and `1'000.50` are accepted. A lone
+  separator followed by exactly three digits (`1.000`) is thousands grouping for `integer` and `money`, and a
+  decimal point for `decimal` and `percentage`.
+- **Dates**: ISO; dotted `D.M.YYYY` is always day-first; in `D/M/YYYY` and `D-M-YYYY` a part > 12 is the day,
+  and if both parts are ≤ 12 the order is configurable (default day-first). Spelled-out months are accepted in
+  en, de, fr, es, it, nl, pt. Four-digit years only; two-digit years are never guessed.
+- **Money**: a currency is mandatory (ISO code, symbol or name → ISO code). Magnitude abbreviations are
+  accepted (`500k`, `1m`, `2 Mrd`, …). `billion` means 10^9; German `Billion` (10^12) is not supported.
+- **Percentage**: text needs an explicit `%` or the word "percent" (and equivalents); bare numbers are
+  rejected as ambiguous.
+- **Enum**: matched case-insensitively against `allowed_values`, then by Jaro-Winkler similarity
+  (threshold 0.92, margin 0.03 to the runner-up, both configurable); anything else is rejected.
 
 No free-form `object` type. A `record` type with sub-fields may be added later.
 
@@ -100,7 +116,8 @@ No free-form `object` type. A `record` type with sub-fields may be added later.
 ```
 
 - `lob` and `business_type` are **required**. No inference (a `ClassifyBundle` step may be added later).
-- `documents` must be non-empty; each `text` must be non-empty.
+- `documents` must be non-empty; each `text` must be non-blank. `document_type` is **required** (use `other`
+  when unknown).
 - `document_id` is **required**: the document's UUID, supplied by the caller. It is the only identifier of a
   document and is what evidence returns. Duplicate or malformed UUIDs → `422`.
 - `current_values` is required and may be empty in `update` mode; it is not accepted in `extraction` mode.
@@ -159,10 +176,30 @@ Rules:
 - A conflict is reported whenever ≥ 2 distinct normalised values are found, **even if one equals the current value**.
 - `evidence` has at least one entry; candidates with no valid evidence are dropped.
 - `match` ∈ {`exact`, `fuzzy`}. A fuzzy-matched quote is replaced by the actual source text.
-- `confidence` is the model's self-report (max over merged candidates). It is used for sorting only, **never for filtering**.
+- `confidence` is the model's self-report (max over merged candidates). It is informational only: **not used
+  for filtering, sorting or any other decision**.
 - `flags` currently only contains `value_not_in_quote` (§8.3).
 - In `extraction` mode the shape is identical; all actions are `add` and `current_value` is `null`.
-- Warning codes (initial set): `candidate_dropped`, `document_truncated`, `group_failed`, `field_inactive_ignored`.
+- Warning codes (initial set): `candidate_dropped`, `document_truncated`, `document_skipped`, `group_failed`,
+  `field_inactive_ignored`.
+
+### 6.1 Value serialisation
+
+Values (`current_value`, `proposed_value`, `value`) are serialised from the normalised form (§4):
+
+| Type | JSON |
+|---|---|
+| `string`, `enum` | string |
+| `integer` | number |
+| `decimal` | string (`"1234.5"`), never a float |
+| `bool` | boolean |
+| `date` | string, ISO `YYYY-MM-DD` |
+| `money` | `{"amount": "5000000", "currency": "USD"}` (amount as string) |
+| `percentage` | string with percent sign (`"15%"`; the normalised fraction `0.15` is internal) |
+| `list` | array of the item type's JSON form |
+
+Every serialised value parses back to the same normalised value, so a response value can be sent back
+unchanged in `current_values`.
 
 ## 7. Pipeline
 
@@ -176,12 +213,16 @@ validate request → select active fields → group fields
 
 - Port: `ContextSelector.select(group, bundle, budget) -> ExtractionContext`.
 - First implementation, `TypeFilterSelector`:
-  1. Candidate documents = documents whose type is in any of the group's `preferred_document_types`;
-     if none, all documents.
-  2. Add whole documents, preferred types first (then input order), until the token budget is reached.
-  3. A single document larger than the remaining budget is cut at the end (keeps the start), with a
+  1. Order all documents: first those whose type is in any of the group's `preferred_document_types`, then
+     the rest; input order within each tier. No document is excluded by type alone (recall over precision).
+  2. Add whole documents in that order until the token budget is reached.
+  3. A document larger than the remaining budget is cut at the end (keeps the start), with a
      `document_truncated` warning.
-- Budget = configured fraction of the extraction model's `CONTEXT_WINDOW` (default 0.6).
+  4. Every document left out entirely once the budget is exhausted produces a `document_skipped` warning
+     (with its `document_id` and the group).
+- Budget = configured fraction of the extraction model's `CONTEXT_WINDOW` (default 0.6). The budget covers
+  document text only; the remaining fraction is the reserve for the prompt (instructions, field
+  descriptions) and the output (`MAX_TOKENS`).
 - Future `HybridRetrievalSelector` (chunking + BM25 + embeddings + RRF, `Embedder` port) plugs into the
   same port and is chosen by config.
 - Quotes are always validated against the **full** document text, not the selected excerpt.
@@ -208,6 +249,12 @@ validate request → select active fields → group fields
 
 - Fields not found are **omitted** (never `null`).
 - `value` is typed per field (the per-group output model is built dynamically from the active fields).
+- **Normalisation is two-layered.** The LLM is the first layer: it is asked to return each value already in
+  the canonical form. The domain is the second and authoritative layer: every returned value goes through
+  the field's type parser (§4), which canonicalises whatever the LLM did not (e.g. `"USD 5m"`,
+  `"01/03/2026"`, `"15 %"`). The output model is therefore lenient: it accepts the canonical form or a plain
+  string for any type. All "change" and "conflict" decisions use the domain-normalised value only.
+- A value the domain parser cannot parse is a validation failure (§8.1).
 - The model is instructed to report **every** distinct value it finds, not to resolve disagreements.
 
 ### 7.3 Reconciliation (domain, deterministic)
@@ -225,8 +272,9 @@ they are measured in evals and left to the reviewer.
 
 Implemented as pydantic_ai output validators raising `ModelRetry`.
 
-### 8.1 ID checks
+### 8.1 ID and value checks
 - Missing or unknown `doc_id` or `field_id` → `ModelRetry`.
+- A `value` the field's type parser rejects (§7.2) → `ModelRetry`.
 
 ### 8.2 Quote matcher (per evidence entry)
 1. **Normalised exact match**: NFKC, unify quotes/dashes, collapse whitespace, ignore case,
@@ -256,6 +304,18 @@ must be found in at least one quote (not necessarily the same one). If not, the 
 - Synchronous request/response with configurable timeout. `request_id` is generated (or taken from an
   `X-Request-ID` header) and echoed. No job API until the bus exists.
 - API request/response models are separate DTOs mapped to/from domain objects.
+- Errors:
+
+  | Situation | HTTP | Library |
+  |---|---|---|
+  | Invalid request (§5.1) | `422` | `InvalidRequestError` |
+  | **Every** group failed (e.g. the model is unreachable) | `502` | `ExtractionFailedError` |
+  | Request timeout exceeded | `504` | `ExtractionTimeoutError` |
+
+  A response with empty `suggestions` and `conflicts` therefore always means "nothing to change", never
+  "extraction did not run". If at least one group succeeds the request succeeds (`200`) and the failed groups
+  are reported as `group_failed` warnings. On timeout no partial result is returned. In the `*_many`
+  functions these errors are returned as `Failure` items instead of being raised.
 
 ### 9.2 Python library
 ```python
@@ -299,7 +359,10 @@ Request/reply vs fire-and-forget, result delivery, retries, DLQ, idempotency and
 - Logs: structured JSON (`structlog`) carrying `trace_id` and `request_id`.
 - Local stack (docker-compose): app + Collector + `grafana/otel-lgtm`, optional Arize Phoenix.
   Production backend: undecided (likely Azure Monitor).
-- The domain layer has no OTel dependency.
+- The domain and application layers have no OTel dependency. The application emits spans and metrics through
+  a `Telemetry` port (`span(name, attributes)` context manager, counters/histograms); the default adapter is a
+  no-op and the OTel adapter lives in infrastructure. Application code logs through stdlib `logging`;
+  `structlog` is configured in infrastructure as the renderer.
 
 ## 12. Architecture
 
@@ -307,7 +370,8 @@ DDD, layered, enforced with import-linter:
 
 ```
 src/owl/
-  domain/          pure Python + pydantic; no I/O, no pydantic_ai, no OTel, no FastAPI
+  domain/          pure Python + pydantic + rapidfuzz (pure computation); no I/O, no pydantic_ai, no OTel,
+                   no FastAPI
   application/     ports (Protocols), use cases, pipeline orchestration, service functions
   infrastructure/  pydantic_ai agent, ModelFactory, prompts, context selectors, bus adapters,
                    YAML catalog loader, telemetry, settings
@@ -343,7 +407,13 @@ Import rules:
 - Each case: true record → documents (invoices, contracts, emails, spreadsheets as text, adjuster reports)
   with planted values → current values perturbed per field (`correct`, `missing`, `wrong`,
   `correct_format_variant`) → expected output derived by construction.
-- Difficulty tags: `conflict`, `restated_old_value`, `format_variant`, `ocr_noise`, `long_bundle`.
+- Difficulty tags: `conflict`, `restated_old_value`, `format_variant`, `ocr_noise`, `long_bundle`,
+  `no_evidence` (the bundle says nothing about some or all fields), `distractor` (values that belong to
+  another policy, party or period appear in the bundle).
+- Document types used are those of the taxonomy (§3); invoices, spreadsheets-as-text and similar are `other`.
+- Expected output is what a correct reviewer would accept, i.e. `reconcile` applied to the **true record**
+  and the current values. For `restated_old_value` cases that is the single correct suggestion; a conflict
+  returned by the system there counts as a false conflict (the accepted limitation of §7.3, made visible).
 - Initial size ≈ 60 cases: 4 `(lob, business_type)` combinations × 2 modes × difficulty mix.
 
 ### 14.2 Metrics
@@ -351,11 +421,20 @@ Field-level matching on normalised values; free text via a pluggable `TextCompar
 (deterministic first: chrF by default, BLEU and token-F1 available; `LLMJudgeComparator` later via pydantic_evals).
 
 - Primary: suggestion **recall** (headline), suggestion precision, **false-change rate**.
+  - Recall = expected suggestions returned with the expected value ÷ expected suggestions.
+  - Precision = returned suggestions that are expected (same field and value) ÷ returned suggestions.
+  - False-change rate (update mode only) = active fields whose current value is correct (`correct` or
+    `correct_format_variant`) **and** for which a `change` suggestion is returned ÷ active fields whose
+    current value is correct. Conflicts on such fields are not counted here; they count in the
+    false-conflict rate.
 - Conflicts: recall, precision, false-conflict rate (on `restated_old_value`).
 - Evidence: document hit rate, `value_not_in_quote` flag rate.
 - Operational: retry rate and dropped-candidate rate by cause, truncation rate, latency p50/p95, tokens per request.
-- All sliced by `(lob, business_type)`, mode, group, field type, difficulty tag.
-- Output: pydantic_evals report + JSON summary per run (for future baselines).
+- All sliced by `(lob, business_type)`, mode, group, field type, difficulty tag. Every sliced figure is
+  reported with its numerator and denominator (slices are small).
+- Output: pydantic_evals report + JSON summary per run (for future baselines). The summary records what is
+  needed to reproduce the run: dataset version, catalog version, prompt version, model name/provider and
+  generation settings (temperature, max tokens, output mode), matcher and parsing thresholds, context budget.
 - Gating: **off for now**. Later gates: recall floor, false-change ceiling, retry-rate ceiling, thresholds
   set from the first baseline.
 
