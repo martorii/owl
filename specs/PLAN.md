@@ -54,7 +54,7 @@ Branch: `feat/01-value-types`
 
 ---
 
-## Step 02 — Catalog `[ ]`
+## Step 02 — Catalog `[x]`
 Branch: `feat/02-catalog`
 
 - `domain/catalog.py`: `FieldDefinition`, `Applicability`, `Catalog` (version, active-field selection,
