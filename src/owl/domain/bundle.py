@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from uuid import UUID
 
 from owl.domain.taxonomy import DocumentType
@@ -19,9 +20,14 @@ class BundleError(ValueError):
 
 @dataclass(frozen=True)
 class Document:
-    """One OCR'd text. ``document_id`` is the caller-supplied UUID, the only document identifier."""
+    """One OCR'd text. ``document_id`` is the caller-supplied UUID, the only document identifier.
+
+    ``document_date`` is the date of the document itself (letter or email date, effective date),
+    not an upload date; later documents win when documents disagree (CONTRACT §5.2, §7.3).
+    """
 
     document_id: UUID
+    document_date: date
     text: str
     filename: str = ""
     document_type: DocumentType = DocumentType.OTHER
@@ -37,6 +43,12 @@ class LabelledDocument:
 
 @dataclass(frozen=True)
 class DocumentBundle:
+    """The documents of one request, always in chronological order: oldest first, latest last.
+
+    The sort is stable, so documents with the same date keep the caller's order. Short IDs
+    (``D1``, ``D2``, ...) follow this order: a higher number is never an earlier document.
+    """
+
     documents: tuple[Document, ...]
 
     def __post_init__(self) -> None:
@@ -54,6 +66,8 @@ class DocumentBundle:
             seen.add(document.document_id)
         if problems:
             raise BundleError(problems)
+        ordered = tuple(sorted(self.documents, key=lambda d: d.document_date))
+        object.__setattr__(self, "documents", ordered)
 
     @property
     def labelled(self) -> tuple[LabelledDocument, ...]:

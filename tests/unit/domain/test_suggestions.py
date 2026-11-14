@@ -14,6 +14,7 @@ from owl.domain.suggestions import (
     Evidence,
     Mode,
     SuggestionResult,
+    WarningCode,
     reconcile,
 )
 from owl.domain.taxonomy import BusinessType, Lob
@@ -39,8 +40,16 @@ CATALOG = Catalog(
 ACTIVE = CATALOG.active_fields(Lob.CASUALTY, BusinessType.DIRECT)
 
 
-def ev(quote: str = "q", doc: UUID = DOC1, kind: MatchKind = MatchKind.EXACT) -> Evidence:
-    return Evidence(doc, "f.pdf", quote, kind)
+D = date(2026, 1, 1)
+
+
+def ev(
+    quote: str = "q",
+    doc: UUID = DOC1,
+    kind: MatchKind = MatchKind.EXACT,
+    on: date = D,
+) -> Evidence:
+    return Evidence(doc, on, "f.pdf", quote, kind)
 
 
 def cand(
@@ -246,6 +255,84 @@ def test_output_follows_active_field_order() -> None:
     assert [s.field for s in result.suggestions] == ["inception", "insured"]
 
 
+# --- supersession by later documents (CONTRACT §7.3) ----------------------------------------
+
+JAN, FEB, MAR = date(2026, 1, 10), date(2026, 2, 10), date(2026, 3, 10)
+
+
+def dated(field: str, value: Value, on: date, *more: date, rationale: str = "r") -> Candidate:
+    evidence = tuple(ev(f"q{d}", on=d) for d in (on, *more))
+    return cand(field, value, evidence=evidence, rationale=rationale)
+
+
+def test_value_from_a_later_document_supersedes_the_older_one() -> None:
+    result = run([dated("limit", usd("5"), JAN), dated("limit", usd("7"), MAR)])
+    assert result.conflicts == ()
+    [s] = result.suggestions
+    assert (s.action, s.proposed_value) == (Action.ADD, usd("7"))
+    [w] = result.warnings
+    assert w.code is WarningCode.CANDIDATE_SUPERSEDED
+    assert (w.field, w.group) == ("limit", "g")
+    assert "5" in w.message
+
+
+def test_input_order_is_irrelevant_to_supersession() -> None:
+    result = run([dated("limit", usd("7"), MAR), dated("limit", usd("5"), JAN)])
+    assert [s.proposed_value for s in result.suggestions] == [usd("7")]
+
+
+def test_same_date_is_still_a_conflict() -> None:
+    result = run([dated("limit", usd("5"), MAR), dated("limit", usd("7"), MAR)])
+    assert result.suggestions == ()
+    assert len(result.conflicts) == 1
+    assert result.warnings == ()
+
+
+def test_old_value_equal_to_current_is_superseded_by_a_change() -> None:
+    result = run(
+        [dated("limit", usd("5"), JAN), dated("limit", usd("7"), MAR)], {"limit": usd("5")}
+    )
+    [s] = result.suggestions
+    assert (s.action, s.current_value, s.proposed_value) == (Action.CHANGE, usd("5"), usd("7"))
+    assert result.conflicts == ()
+
+
+def test_latest_value_equal_to_current_gives_no_suggestion_but_a_warning() -> None:
+    result = run(
+        [dated("limit", usd("5"), JAN), dated("limit", usd("7"), MAR)], {"limit": usd("7")}
+    )
+    assert result.suggestions == ()
+    assert result.conflicts == ()
+    assert [w.code for w in result.warnings] == [WarningCode.CANDIDATE_SUPERSEDED]
+
+
+def test_a_value_restated_in_a_later_document_is_not_superseded() -> None:
+    # 5 is supported by January and March, 7 only by March: the latest support ties
+    result = run([dated("limit", usd("5"), JAN, MAR), dated("limit", usd("7"), MAR)])
+    assert len(result.conflicts) == 1
+    assert result.warnings == ()
+
+
+def test_three_values_two_tied_latest_conflict_and_the_old_one_is_superseded() -> None:
+    result = run(
+        [
+            dated("limit", usd("1"), JAN),
+            dated("limit", usd("2"), MAR),
+            dated("limit", usd("3"), MAR),
+        ]
+    )
+    [c] = result.conflicts
+    assert [x.value for x in c.candidates] == [usd("2"), usd("3")]
+    assert [w.code for w in result.warnings] == [WarningCode.CANDIDATE_SUPERSEDED]
+
+
+def test_supersession_applies_in_extraction_mode_too() -> None:
+    result = run(
+        [dated("limit", usd("5"), JAN), dated("limit", usd("7"), FEB)], mode=Mode.EXTRACTION
+    )
+    assert [(s.action, s.proposed_value) for s in result.suggestions] == [(Action.ADD, usd("7"))]
+
+
 # --- invariants ------------------------------------------------------------------------------
 
 
@@ -276,7 +363,7 @@ _values = st.sampled_from(["a", "A", "b", "B", "c"])
             st.floats(0, 1),
         ),
         max_size=6,
-    ),
+    ),  # all evidence has the same date, so nothing is superseded here
     current=st.one_of(st.none(), _values),
 )
 def test_field_never_in_both_and_confidence_is_max(

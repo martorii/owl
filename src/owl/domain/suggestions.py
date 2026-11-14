@@ -6,6 +6,7 @@ through ``parse_value``. ``None`` is never a value: a missing current value is s
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from enum import StrEnum
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from owl.domain.values import (
     Value,
     ValueParseError,
     equality_key,
+    format_value,
     parse_value,
 )
 
@@ -37,6 +39,7 @@ class WarningCode(StrEnum):
     DOCUMENT_SKIPPED = "document_skipped"
     GROUP_FAILED = "group_failed"
     FIELD_INACTIVE_IGNORED = "field_inactive_ignored"
+    CANDIDATE_SUPERSEDED = "candidate_superseded"
 
 
 VALUE_NOT_IN_QUOTE = "value_not_in_quote"
@@ -45,6 +48,7 @@ VALUE_NOT_IN_QUOTE = "value_not_in_quote"
 @dataclass(frozen=True)
 class Evidence:
     document_id: UUID
+    document_date: date  # date of the source document; drives supersession (CONTRACT §7.3)
     filename: str
     quote: str
     match: MatchKind
@@ -134,6 +138,11 @@ def _unique[T](items: Iterable[T]) -> tuple[T, ...]:
     return tuple(dict.fromkeys(items))
 
 
+def _latest(group: Sequence[Candidate]) -> date:
+    """Date of the latest document supporting a value."""
+    return max(e.document_date for c in group for e in c.evidence)
+
+
 def _merge(group: Sequence[Candidate]) -> _Merged:
     # first candidate wins ties: max() returns the first maximal element
     best = max(group, key=lambda c: c.confidence)
@@ -164,6 +173,7 @@ def reconcile(
 
     suggestions: list[UpdateSuggestion] = []
     conflicts: list[Conflict] = []
+    warnings: list[PipelineWarning] = []
     for active in active_fields:
         name = active.definition.name
         spec = active.definition.value_spec
@@ -176,6 +186,21 @@ def reconcile(
         groups: dict[object, list[Candidate]] = {}
         for candidate in found:
             groups.setdefault(equality_key(spec, candidate.value), []).append(candidate)
+
+        # Supersession guardrail: a value whose latest supporting document is older than the latest
+        # supporting document of another value has been replaced by it.
+        newest = max(_latest(g) for g in groups.values())
+        for key in [k for k, g in groups.items() if _latest(g) < newest]:
+            old = _merge(groups.pop(key))
+            warnings.append(
+                PipelineWarning(
+                    WarningCode.CANDIDATE_SUPERSEDED,
+                    f"{name}: {format_value(spec, old.value)} was superseded by a value from a "
+                    f"later document",
+                    field=name,
+                    group=active.definition.group,
+                )
+            )
 
         if len(groups) == 1:
             ((key, group),) = groups.items()
@@ -213,7 +238,7 @@ def reconcile(
                     ),
                 )
             )
-    return SuggestionResult(tuple(suggestions), tuple(conflicts), ())
+    return SuggestionResult(tuple(suggestions), tuple(conflicts), tuple(warnings))
 
 
 # --- current values (CONTRACT §5.1) ----------------------------------------------------------

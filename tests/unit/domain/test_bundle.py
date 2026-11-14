@@ -1,13 +1,23 @@
+from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from owl.domain.bundle import BundleError, Document, DocumentBundle
 from owl.domain.taxonomy import DocumentType
 
+D0 = date(2026, 1, 1)
 
-def doc(text: str = "text", document_id: UUID | None = None) -> Document:
-    return Document(document_id=document_id or uuid4(), text=text, filename="f.pdf")
+
+def doc(text: str = "text", document_id: UUID | None = None, document_date: date = D0) -> Document:
+    return Document(
+        document_id=document_id or uuid4(),
+        document_date=document_date,
+        text=text,
+        filename="f.pdf",
+    )
 
 
 def test_document_id_is_the_uuid_it_was_given() -> None:
@@ -20,11 +30,11 @@ def test_document_id_is_the_uuid_it_was_given() -> None:
 
 def test_document_type_defaults_to_other() -> None:
     assert doc().document_type is DocumentType.OTHER
-    typed = Document(uuid4(), "a", "a.pdf", DocumentType.CONTRACT)
+    typed = Document(uuid4(), D0, "a", "a.pdf", DocumentType.CONTRACT)
     assert typed.document_type is DocumentType.CONTRACT
 
 
-def test_short_ids_are_prompt_labels_in_input_order() -> None:
+def test_short_ids_are_prompt_labels_in_chronological_order() -> None:
     a, b = uuid4(), uuid4()
     bundle = DocumentBundle((doc(document_id=a), doc(document_id=b)))
     assert [(x.short_id, x.document.document_id) for x in bundle.labelled] == [("D1", a), ("D2", b)]
@@ -67,3 +77,41 @@ def test_reports_every_problem() -> None:
     with pytest.raises(BundleError) as exc:
         DocumentBundle((doc("", uid), doc(" ", uid)))
     assert len(exc.value.problems) == 3
+
+
+# --- chronological order (CONTRACT §5.2) -----------------------------------------------------
+
+
+def test_documents_are_sorted_oldest_first_latest_last() -> None:
+    old, mid, new = (doc(document_date=date(2026, m, 1)) for m in (1, 2, 3))
+    bundle = DocumentBundle((new, old, mid))
+    assert bundle.documents == (old, mid, new)
+
+
+def test_same_date_keeps_input_order() -> None:
+    a, b, c = doc("a"), doc("b"), doc("c")
+    assert DocumentBundle((b, c, a)).documents == (b, c, a)
+
+
+def test_short_ids_follow_the_sorted_order() -> None:
+    new_id, old_id = uuid4(), uuid4()
+    bundle = DocumentBundle(
+        (
+            doc(document_id=new_id, document_date=date(2026, 6, 1)),
+            doc(document_id=old_id, document_date=date(2026, 1, 1)),
+        )
+    )
+    assert bundle.short_id_of(old_id) == "D1"
+    assert bundle.short_id_of(new_id) == "D2"
+    resolved = bundle.resolve("D2")
+    assert resolved is not None
+    assert resolved.document_id == new_id
+
+
+@given(st.lists(st.dates(), min_size=1, max_size=8))
+def test_sorting_is_a_stable_permutation(dates: list[date]) -> None:
+    docs = tuple(doc(str(i), document_date=d) for i, d in enumerate(dates))
+    bundle = DocumentBundle(docs)
+    assert sorted(bundle.documents, key=lambda x: x.text) == sorted(docs, key=lambda x: x.text)
+    assert list(bundle.documents) == sorted(docs, key=lambda x: x.document_date)  # stable sort
+    assert [x.document_date for x in bundle.documents] == sorted(dates)
