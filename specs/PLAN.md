@@ -169,7 +169,7 @@ Branch: `feat/06-ports-context`
 
 ---
 
-## Step 07 — Model factory `[ ]`
+## Step 07 — Model factory `[~]`
 Branch: `feat/07-model-factory`
 
 - `infrastructure/llm/model_factory.py`: `openai_compatible`, `azure_openai`, `openai`; output mode switch.
@@ -188,7 +188,8 @@ Branch: `feat/08-llm-extractor`
   Jinja prompts with `prompt_version`; output validator implementing §8.1–8.4 (single aggregated
   `ModelRetry` message, drop after `max_retries`).
 - `infrastructure/llm/rate_limit.py` (CONTRACT §9.5): a 429 waits (`Retry-After`, else backoff with jitter)
-  and retries within `RATE_LIMIT_MAX_WAIT`, outside the `ModelRetry` and `MAX_RETRIES` budgets; optional
+  and retries within `RATE_LIMIT_MAX_WAIT`, outside the `ModelRetry` and `MAX_RETRIES` budgets; transient
+  `5xx` / timeouts / dropped connections are retried the same way (CONTRACT §9.5, decided in step 07); optional
   token pacing when `TPM_LIMIT` is set (adds the `OWL_JOBS__MAX_CONCURRENT_RUNS` setting).
 
 **To decide in the step announcement**: how "keep the valid part once retries are exhausted" (§8.4) is
@@ -202,7 +203,8 @@ drops on the last attempt). Check the pinned pydantic_ai version's API first.
   corrected answer accepted.
 - Retries exhausted → partial keep + `candidate_dropped`; nothing valid → `group_failed`.
 - Rate limit (fake clock): 429s are waited out and the call succeeds without consuming `ModelRetry`
-  attempts; `Retry-After` honoured; waiting budget exhausted → the group fails. With `TPM_LIMIT` set, the
+  attempts; `Retry-After` honoured; a `5xx` is retried the same way, a `400` is not; waiting budget
+  exhausted → the group fails. With `TPM_LIMIT` set, the
   estimated tokens sent in any minute never exceed the process's share.
 
 **Manual acceptance**: user runs one request against LM Studio with a provided script (a few golden-set
@@ -384,3 +386,5 @@ Branch: `feat/16-eval-harness`
   `TypeFilterSelector` drops the lowest-priority documents (with `document_skipped` / `document_truncated`
   warnings). Options to weigh: several extraction calls per group over budget-sized slices of the bundle (then
   reconcile), the planned `HybridRetrievalSelector`, or both. Needs a CONTRACT §7.1 decision first.
+- Step 07: `NativeOutput` uses OpenAI strict JSON schema; the lenient "canonical form or string" output model
+  (§7.2) may not fit strict schemas (notably on Azure). Check in step 08; `OUTPUT_MODE=tool` is the fallback.
