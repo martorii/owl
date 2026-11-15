@@ -467,6 +467,8 @@ service functions accept an optional progress callback, which `RunJob` uses to w
      (`RATE_LIMIT_MAX_WAIT`, configurable). These waits do not count against `MAX_RETRIES` or against the
      `ModelRetry` budget of §8.4. Only when the waiting budget is used up does the call fail (and with it
      the group, §8.4).
+     Transient errors are treated the same way, within the same waiting budget: HTTP `5xx`, request
+     timeouts and dropped connections (exponential backoff with jitter). Other `4xx` errors are not retried.
   2. `TPM_LIMIT` is an optional per-role setting (the quota is not known yet). When set, each process paces
      its LLM calls so that its estimated tokens per minute (`TokenCounter` estimate of the prompt +
      `MAX_TOKENS`) stay within `TPM_LIMIT ÷ OWL_JOBS__MAX_CONCURRENT_RUNS`. Runs therefore share the quota
@@ -489,7 +491,18 @@ service functions accept an optional progress callback, which `RunJob` uses to w
 - Other settings sections: `OWL_PARSING__*` (`DATE_ORDER`, `DECIMAL_PLACES`, `ENUM_SIMILARITY_THRESHOLD`,
   `ENUM_SIMILARITY_MARGIN`, §4), `OWL_MATCHER__*` (`FUZZY_MIN_LENGTH`, `FUZZY_THRESHOLD`, §8.2),
   `OWL_CONTEXT__BUDGET_FRACTION` (§7.1). Secrets are `SecretStr` and never appear in `repr` or dumps.
-- A single `ModelFactory` (infrastructure) maps settings → pydantic_ai `Model`. No other module knows the provider.
+- A single `ModelFactory` (infrastructure) maps settings → pydantic_ai `Model`. No other module knows the provider
+  (a test scans `src/owl` for imports of `openai`, `pydantic_ai.providers`, `pydantic_ai.models.openai`).
+  - `ModelFactory(models).build(role) -> ConfiguredModel(model, model_settings, output_mode)`;
+    `ConfiguredModel.output_spec(type)` wraps an output type in `NativeOutput` / `ToolOutput` / `PromptedOutput`
+    per `OUTPUT_MODE`.
+  - Every provider uses pydantic_ai's `OpenAIChatModel` (Chat Completions API, not the Responses API):
+    `openai_compatible` → `OpenAICompatibleProvider(base_url, api_key)` with `NAME` (API key optional);
+    `azure_openai` → `AzureProvider(azure_endpoint, api_version, api_key)` with `DEPLOYMENT` as model name;
+    `openai` → `OpenAIProvider(api_key, base_url if set)` with `NAME`.
+  - Generation settings sent per request: `temperature`, `max_tokens`, `timeout`, and `max_retries: 0` — the
+    OpenAI SDK's own retries are off, so all transport retrying is done by the rate-limit layer (§9.5).
+    `MAX_RETRIES` is the `ModelRetry` budget of §8.4, not an SDK setting.
 - Providers by profile (§9.2): `databricks` uses Azure OpenAI (`azure_openai`); `local` uses LM Studio via
   `openai_compatible`. On Databricks the secrets (LLM key, callback secret, job-store credentials) live in
   Databricks secrets and reach the code as `OWL_` settings.
