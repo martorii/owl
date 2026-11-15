@@ -25,14 +25,17 @@ uv run pytest                           # tests
 uv run ruff check . && uv run ruff format --check .
 uv run pyright
 uv run lint-imports                     # layer rules
-uv run uvicorn owl.entrypoints.api.app:app --reload   # API (from step 10)
+uv run uvicorn owl.entrypoints.api.app:app --reload   # API (from step 12)
 ```
 
 ## Architecture rules (enforced by import-linter)
-- `owl.domain`: pure Python + pydantic + rapidfuzz. No I/O, no pydantic_ai, no FastAPI, no OTel, no YAML.
+- `owl.domain`: pure Python + pydantic + rapidfuzz. No I/O, no pydantic_ai, no FastAPI, no MLflow, no YAML.
 - `owl.application`: ports (`typing.Protocol`) and use cases; imports only `domain`.
-- `owl.infrastructure`: the only place that imports pydantic_ai, OTel exporters, httpx, yaml.
-- `owl.entrypoints`: FastAPI/CLI; composition root that wires adapters into the application.
+- `owl.infrastructure`: the only place that imports pydantic_ai, mlflow, the Databricks SDK, the Postgres
+  driver, httpx, yaml.
+- `owl.entrypoints`: FastAPI, job runner, CLI; composition root that wires adapters into the application.
+- Two profiles, `databricks` and `local` (CONTRACT §9.2), differ only in adapters chosen by settings; never
+  branch on the profile in domain or application code.
 - API DTOs are separate from domain models.
 - Business decisions (canonical normalisation, "is this a change", conflicts) live in the domain, never in
   prompts or the LLM. The LLM may pre-normalise values, but the domain parser always has the last word.
