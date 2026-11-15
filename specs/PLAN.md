@@ -127,7 +127,7 @@ Inserted after step 04 (user request): later documents must win when documents d
 
 ---
 
-## Step 05 — Synthetic golden set `[~]`
+## Step 05 — Synthetic golden set `[x]`
 Branch: `feat/05-golden-set`
 
 Moved ahead of the LLM steps: it depends only on the domain, and the extraction prompt (step 08) is then
