@@ -5,6 +5,7 @@ description = "Grounded field-update suggestions from OCR'd document bundles."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "jinja2>=3.1.6",
     "pydantic>=2.8",
     "pydantic-ai-slim[openai]>=0.0.50",
     "pydantic-settings>=2.16.3",

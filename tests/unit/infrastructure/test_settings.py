@@ -222,3 +222,11 @@ def test_shipped_env_example_loads(monkeypatch: pytest.MonkeyPatch) -> None:
     example = Path(__file__).resolve().parents[3] / ".env.example"
     settings = load_settings(env_file=example)
     assert settings.models.model_for(ModelRole.EXTRACTION).provider is Provider.OPENAI_COMPATIBLE
+
+
+def test_jobs_max_concurrent_runs_defaults_to_one_and_reads_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert load(monkeypatch, LOCAL).jobs.max_concurrent_runs == 1
+    env = LOCAL | {"OWL_JOBS__MAX_CONCURRENT_RUNS": "4"}
+    assert load(monkeypatch, env).jobs.max_concurrent_runs == 4
