@@ -151,7 +151,7 @@ developed against data.
 
 ---
 
-## Step 06 — Ports, settings, context selection `[ ]`
+## Step 06 — Ports, settings, context selection `[~]`
 Branch: `feat/06-ports-context`
 
 - `application/ports.py`: `FieldExtractor`, `ContextSelector`, `TokenCounter`, `Telemetry` (CONTRACT §11;
@@ -159,6 +159,7 @@ Branch: `feat/06-ports-context`
 - `infrastructure/settings.py`: pydantic-settings per CONTRACT §10 (roles + `default` fallback), including
   the parsing options of CONTRACT §4 (date order, decimal places, enum thresholds), matcher thresholds and
   the rate-limit settings of CONTRACT §9.5 (`TPM_LIMIT`, `RATE_LIMIT_MAX_WAIT`).
+  `OWL_JOBS__MAX_CONCURRENT_RUNS`, needed for the TPM share, is added in step 08 where pacing uses it.
 - `infrastructure/context/type_filter.py`: `TypeFilterSelector`; `CharTokenCounter`.
 
 **Gate tests**
@@ -188,7 +189,7 @@ Branch: `feat/08-llm-extractor`
   `ModelRetry` message, drop after `max_retries`).
 - `infrastructure/llm/rate_limit.py` (CONTRACT §9.5): a 429 waits (`Retry-After`, else backoff with jitter)
   and retries within `RATE_LIMIT_MAX_WAIT`, outside the `ModelRetry` and `MAX_RETRIES` budgets; optional
-  token pacing when `TPM_LIMIT` is set.
+  token pacing when `TPM_LIMIT` is set (adds the `OWL_JOBS__MAX_CONCURRENT_RUNS` setting).
 
 **To decide in the step announcement**: how "keep the valid part once retries are exhausted" (§8.4) is
 implemented in pydantic_ai, which by default raises when retries run out (e.g. the validator accepts and
@@ -379,3 +380,7 @@ Branch: `feat/16-eval-harness`
   whether §8.3 should skip `bool` fields or the prompt should ask for a short quote with the key phrase.
 - Step 05: the 64 cases were composed by a one-off script from hand-written pools and per-tag recipes (kept out
   of the repo); a seeded generator in the repo, if wanted, is a separate step.
+- Step 06 (user): design a strategy for document bundles that exceed the context window. Today
+  `TypeFilterSelector` drops the lowest-priority documents (with `document_skipped` / `document_truncated`
+  warnings). Options to weigh: several extraction calls per group over budget-sized slices of the bundle (then
+  reconcile), the planned `HybridRetrievalSelector`, or both. Needs a CONTRACT §7.1 decision first.

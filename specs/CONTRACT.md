@@ -235,9 +235,20 @@ validate request → select active fields → group fields
      `document_truncated` warning.
   4. Every document left out entirely once the budget is exhausted produces a `document_skipped` warning
      (with its `document_id` and the group).
-- Budget = configured fraction of the extraction model's `CONTEXT_WINDOW` (default 0.6). The budget covers
-  document text only; the remaining fraction is the reserve for the prompt (instructions, field
-  descriptions) and the output (`MAX_TOKENS`).
+  - The order is strict: the first document that does not fit is cut to the remaining budget, and every
+    document after it in inclusion order is skipped, even a smaller one that would still fit.
+  - The cut keeps the longest start that fits (measured with the `TokenCounter`), moved back to the last
+    whitespace when it falls inside a word (unless the start is a single word), trailing whitespace removed.
+    If nothing fits, the document is skipped (`document_skipped`), never sent empty.
+  - Included documents keep their bundle-wide `D` labels (§5.2), so a selection may have gaps (`D1, D3`).
+  - Types: `ExtractionContext(group, documents, warnings)` of `ContextDocument(labelled, text, truncated)`
+    in `owl.domain.context`.
+- Budget = configured fraction of the extraction model's `CONTEXT_WINDOW` (`OWL_CONTEXT__BUDGET_FRACTION`,
+  default 0.6, rounded down to whole tokens). The budget covers document text only (not labels or date
+  headers); the remaining fraction is the reserve for the prompt (instructions, field descriptions) and the
+  output (`MAX_TOKENS`).
+- Bundles larger than the budget lose their lowest-priority documents (warned, not silent). A strategy for
+  bundles that exceed the context window (e.g. several calls per group, retrieval) is still to be designed.
 - Future `HybridRetrievalSelector` (chunking + BM25 + embeddings + RRF, `Embedder` port) plugs into the
   same port and is chosen by config.
 - Quotes are always validated against the **full** document text, not the selected excerpt.
@@ -465,18 +476,27 @@ service functions accept an optional progress callback, which `RunJob` uses to w
 ## 10. LLM and models
 
 - Settings via pydantic-settings (env / `.env`), prefix `OWL_`, nested delimiter `__`.
-- Models configured **per role**: `extraction` (now), `polishing`, `judge` (later). Unconfigured roles fall
-  back to `default`.
+- Models configured **per role**: `extraction` (now), `polishing`, `judge` (later). A role that is not
+  configured at all falls back to `default` **as a whole**; there is no key-by-key fallback, and a role that
+  is configured must be complete. Startup fails if `extraction` resolves to no model; a later role resolves
+  (or fails) when it is first used.
 - Per role: `PROVIDER` ∈ {`openai_compatible`, `azure_openai`, `openai`}, `NAME`/`DEPLOYMENT`, `BASE_URL` /
   `AZURE_ENDPOINT` / `API_VERSION`, `API_KEY` (SecretStr), `CONTEXT_WINDOW`, `TEMPERATURE` (default 0),
   `MAX_TOKENS`, `TIMEOUT`, `MAX_RETRIES`, `OUTPUT_MODE` ∈ {`native` (default), `tool`, `prompted`}.
+  Defaults: `TEMPERATURE` 0, `MAX_TOKENS` 4096, `TIMEOUT` 120 s per call, `MAX_RETRIES` 2; `CONTEXT_WINDOW`
+  has no default. Required per provider (checked at startup): `openai_compatible` → `NAME`, `BASE_URL`;
+  `openai` → `NAME`, `API_KEY`; `azure_openai` → `DEPLOYMENT`, `AZURE_ENDPOINT`, `API_VERSION`, `API_KEY`.
+- Other settings sections: `OWL_PARSING__*` (`DATE_ORDER`, `DECIMAL_PLACES`, `ENUM_SIMILARITY_THRESHOLD`,
+  `ENUM_SIMILARITY_MARGIN`, §4), `OWL_MATCHER__*` (`FUZZY_MIN_LENGTH`, `FUZZY_THRESHOLD`, §8.2),
+  `OWL_CONTEXT__BUDGET_FRACTION` (§7.1). Secrets are `SecretStr` and never appear in `repr` or dumps.
 - A single `ModelFactory` (infrastructure) maps settings → pydantic_ai `Model`. No other module knows the provider.
 - Providers by profile (§9.2): `databricks` uses Azure OpenAI (`azure_openai`); `local` uses LM Studio via
   `openai_compatible`. On Databricks the secrets (LLM key, callback secret, job-store credentials) live in
   Databricks secrets and reach the code as `OWL_` settings.
-- Rate limiting per role (§9.5): `TPM_LIMIT` (optional, unset by default) and `RATE_LIMIT_MAX_WAIT`.
-- Token counting: `TokenCounter` port. Default: characters ÷ 3.5 with a 15% safety margin. `tiktoken`
-  counter available for OpenAI/Azure.
+- Rate limiting per role (§9.5): `TPM_LIMIT` (optional, unset by default) and `RATE_LIMIT_MAX_WAIT`
+  (default 600 s, so a call can wait out most of a worst-case run).
+- Token counting: `TokenCounter` port (`count(text) -> int`). Default `CharTokenCounter`:
+  `ceil(characters ÷ 3.5 × 1.15)`. `tiktoken` counter available for OpenAI/Azure.
 - Prompts are versioned Jinja templates in `src/owl/infrastructure/llm/prompts/`; `prompt_version` is recorded.
 
 ## 11. Observability
@@ -492,8 +512,8 @@ service functions accept an optional progress callback, which `RunJob` uses to w
   reason, truncations, skipped documents) are recorded as attributes on the spans.
 - Logs: structured JSON (`structlog`) carrying `job_id` and the trace id.
 - The domain and application layers have no MLflow dependency. The application emits spans through a
-  `Telemetry` port (`span(name, attributes)` context manager, `set_attributes`); the default adapter is a
-  no-op and the MLflow adapter lives in infrastructure. Application code logs through stdlib `logging`;
+  `Telemetry` port (`span(name, attributes)` sync context manager yielding a span with `set_attributes`;
+  sync so it is usable in async code); the default adapter is a no-op (`NoopTelemetry`) and the MLflow adapter lives in infrastructure. Application code logs through stdlib `logging`;
   `structlog` is configured in infrastructure as the renderer.
 - Local stack (docker-compose): app + Postgres, optional MLflow tracking server.
 
