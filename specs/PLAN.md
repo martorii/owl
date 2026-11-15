@@ -169,7 +169,7 @@ Branch: `feat/06-ports-context`
 
 ---
 
-## Step 07 — Model factory `[~]`
+## Step 07 — Model factory `[x]`
 Branch: `feat/07-model-factory`
 
 - `infrastructure/llm/model_factory.py`: `openai_compatible`, `azure_openai`, `openai`; output mode switch.
