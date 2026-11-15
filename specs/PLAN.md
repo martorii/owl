@@ -151,7 +151,7 @@ developed against data.
 
 ---
 
-## Step 06 — Ports, settings, context selection `[~]`
+## Step 06 — Ports, settings, context selection `[x]`
 Branch: `feat/06-ports-context`
 
 - `application/ports.py`: `FieldExtractor`, `ContextSelector`, `TokenCounter`, `Telemetry` (CONTRACT §11;
