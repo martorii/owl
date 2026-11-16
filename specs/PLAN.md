@@ -182,8 +182,8 @@ Branch: `feat/07-model-factory`
 ## Step 08 — LLM extractor `[~]`
 Branch: `feat/08-llm-extractor`
 
-- `infrastructure/llm/extractor.py`: pydantic_ai agent per group; dynamic, lenient output model from active
-  fields (canonical form or plain string, CONTRACT §7.2); every value passed through the domain parser;
+- `infrastructure/llm/extractor.py`: pydantic_ai agent per group; dynamic output model typed per field from the
+  active fields (canonical form or plain text, CONTRACT §7.2); every value passed through the domain parser;
   Jinja prompts with `prompt_version`; output validator implementing §8.1–8.4 (single aggregated
   `ModelRetry` message, drop after `max_retries`).
 - `infrastructure/llm/rate_limit.py` (CONTRACT §9.5): a 429 waits (`Retry-After`, else backoff with jitter)

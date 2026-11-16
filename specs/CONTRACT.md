@@ -274,7 +274,11 @@ validate request → select active fields → group fields
 ```
 
 - Fields not found are **omitted** (never `null`). A candidate `value` of `null` is not allowed.
-- `value` is typed per field (the per-group output model is built dynamically from the active fields).
+- `value` is typed per field: the per-group output model is built dynamically from the active fields, with
+  `field_id` a literal of the group's IDs (unknown IDs fail schema validation), each value typed as its
+  field's canonical form **or plain text** (money: `{amount, currency}` or text; list: items or text; date,
+  enum, string: text; integer, decimal, percentage, bool: number/bool or text), and the field's name,
+  description, format and allowed values in the schema. A wrong shape or `null` fails schema validation.
 - **Normalisation is two-layered.** The LLM is the first layer: it is asked to return each value already in
   the canonical form. The domain is the second and authoritative layer: every returned value goes through
   the field's type parser (§4), which canonicalises whatever the LLM did not (e.g. `"USD 5m"`,
@@ -337,9 +341,18 @@ must be found in at least one quote (not necessarily the same one). If not, the 
 ### 8.4 Retry policy
 - One `ModelRetry` message lists **all** failures of that output.
 - `max_retries` default 2 (configurable).
-- When retries are exhausted, invalid evidence/candidates are dropped with `candidate_dropped` warnings
-  and the rest of the group output is kept. The group fails (`group_failed`) only if nothing valid remains.
-  A failed group never fails the whole request.
+- Two layers share the one `max_retries` budget: schema validation (wrong shape, unknown `field_id`, `null`;
+  retried by pydantic_ai with the validation error) and the output validator (§8.1–8.3; one aggregated
+  `ModelRetry`).
+- When retries are exhausted after the output validator, invalid evidence/candidates are dropped with
+  `candidate_dropped` warnings (one per problem) and the rest of the group output is kept. The group fails
+  (`group_failed`) only if nothing valid remains. If the **schema** is still violated on the last attempt
+  there is no parsed output to keep, so the group fails. A failed group never fails the whole request.
+- Evidence is dropped per entry: a candidate whose value parses keeps its valid evidence entries and is
+  dropped only when none is left. A `doc_id` of a document not shown to the model counts as unknown.
+- `confidence` outside [0, 1] is clamped, not rejected.
+- A call that fails for a non-transient reason (other `4xx`, quota exceeded, authentication) is not retried
+  and fails the group.
 
 ## 9. Interfaces
 
@@ -473,6 +486,8 @@ service functions accept an optional progress callback, which `RunJob` uses to w
      its LLM calls so that its estimated tokens per minute (`TokenCounter` estimate of the prompt +
      `MAX_TOKENS`) stay within `TPM_LIMIT ÷ OWL_JOBS__MAX_CONCURRENT_RUNS`. Runs therefore share the quota
      statically, without shared state. When unset, only rule 1 applies.
+- Pacing waits (rule 2) do not count against `RATE_LIMIT_MAX_WAIT`. A request whose estimate alone exceeds
+  the per-process budget is sent on its own rather than waiting forever.
 - A shared token bucket across runs (in the job store) is parked (§16).
 
 ## 10. LLM and models
