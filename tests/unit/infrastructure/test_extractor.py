@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -16,8 +17,8 @@ from owl.domain.context import ContextDocument, ExtractionContext
 from owl.domain.evidence import MatchKind
 from owl.domain.suggestions import WarningCode
 from owl.domain.taxonomy import BusinessType, Lob
-from owl.domain.values import DateOrder, FieldType, Money, ParseOptions
-from owl.infrastructure.llm.extractor import LlmFieldExtractor
+from owl.domain.values import DateOrder, FieldType, ListValue, Money, ParseOptions
+from owl.infrastructure.llm.extractor import LlmFieldExtractor, build_output_model
 from owl.infrastructure.llm.model_factory import ConfiguredModel
 from owl.infrastructure.llm.prompting import PROMPT_VERSION, render_system, render_user
 from owl.infrastructure.llm.rate_limit import RateLimitConfig, RateLimiter
@@ -179,7 +180,6 @@ GOOD = answer(("F1", [candidate("USD 5m")]))
 @pytest.mark.parametrize(
     ("bad", "expected"),
     [
-        (answer(("F9", [candidate("USD 5m")])), "F9"),
         (answer(("F1", [candidate("USD 5m", doc="D9")])), "D9"),
         (answer(("F1", [candidate("USD 5m", doc="")])), "doc_id"),
         (answer(("F1", [candidate("USD 5m", quote="not in any document at all")])), "quote"),
@@ -198,9 +198,56 @@ async def test_invalid_output_is_retried_and_the_corrected_answer_accepted(
     assert expected in retry
 
 
+@pytest.mark.parametrize(
+    ("bad", "expected"),
+    [
+        (answer(("F9", [candidate("USD 5m")])), "F9"),  # unknown field id
+        (answer(("F1", [candidate(["USD 5m"])])), "F1"),  # a list for a money field
+        (answer(("F1", [candidate({"amount": 5, "unit": "USD"})])), "currency"),  # wrong shape
+        (answer(("F2", [candidate({"day": 1}, "D2", "Endorsement effective 01/03/2026")])), "F2"),
+        (answer(("F1", [candidate(None)])), "value"),  # null is not allowed
+    ],
+)
+async def test_values_of_the_wrong_type_fail_the_schema_and_are_retried(
+    bad: dict[str, Any], expected: str
+) -> None:
+    script = Script(bad, GOOD)
+    outcome = await extractor(script).extract(GROUP, CONTEXT, BUNDLE)
+    assert [c.field for c in outcome.candidates] == ["limit"]
+    assert expected in script.retry_texts()[0]
+
+
+def test_the_output_schema_is_typed_per_field_and_carries_the_descriptions() -> None:
+    schema = json.dumps(build_output_model(GROUP).model_json_schema())
+    for needle in ("F1", "F2", "F3", "limit description", "currency", "date"):
+        assert needle in schema
+
+
+async def test_a_list_field_accepts_items_or_text_and_rejects_other_shapes() -> None:
+    listing = FieldGroup(
+        "financials",
+        (field("F1", "perils", FieldType.LIST, item_type=FieldType.STRING),),
+    )
+    ctx = ExtractionContext(listing, CONTEXT.documents)
+    items = answer(("F1", [candidate(["fire", "flood"], quote="Policy schedule")]))
+    text = answer(("F1", [candidate("fire, flood", quote="Policy schedule")]))
+    for good in (items, text):
+        outcome = await extractor(Script(good)).extract(listing, ctx, BUNDLE)
+        assert outcome.candidates[0].value == ListValue(("fire", "flood"))
+    script = Script(answer(("F1", [candidate({"a": 1}, quote="Policy schedule")])), items)
+    await extractor(script).extract(listing, ctx, BUNDLE)
+    assert len(script.requests) == 2
+
+
+async def test_a_single_field_group_works() -> None:
+    single = FieldGroup("financials", (GROUP.fields[0],))
+    ctx = ExtractionContext(single, CONTEXT.documents)
+    outcome = await extractor(Script(GOOD)).extract(single, ctx, BUNDLE)
+    assert outcome.candidates[0].field == "limit"
+
+
 async def test_one_retry_message_lists_all_problems() -> None:
     bad = answer(
-        ("F9", [candidate("x")]),
         (
             "F1",
             [
@@ -213,7 +260,7 @@ async def test_one_retry_message_lists_all_problems() -> None:
     script = Script(bad, GOOD)
     await extractor(script).extract(GROUP, CONTEXT, BUNDLE)
     [retry] = script.retry_texts()
-    for needle in ("F9", "D9", "nonsense", "zzz zzz"):
+    for needle in ("D9", "nonsense", "zzz zzz"):
         assert needle in retry
 
 

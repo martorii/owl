@@ -8,8 +8,11 @@ below the agent, in ``RateLimitedModel``, outside the retry budget (§9.5).
 """
 
 from dataclasses import dataclass, field
+from functools import reduce
+from operator import or_
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior
 from pydantic_ai.models import Model
@@ -32,33 +35,42 @@ from owl.domain.suggestions import (
     PipelineWarning,
     WarningCode,
 )
-from owl.domain.values import DEFAULT_OPTIONS, ParseOptions, Value, ValueParseError, parse_value
+from owl.domain.values import (
+    DEFAULT_OPTIONS,
+    FieldType,
+    ParseOptions,
+    Value,
+    ValueParseError,
+    ValueSpec,
+    parse_value,
+)
 from owl.infrastructure.llm.model_factory import ConfiguredModel
 from owl.infrastructure.llm.prompting import render_system, render_user
 from owl.infrastructure.llm.rate_limit import RateLimitedModel, RateLimiter
 
-# --- lenient output model (CONTRACT §7.2) ------------------------------------------------------
+# --- typed output model (CONTRACT §7.2) --------------------------------------------------------
 #
-# The model may answer in canonical form or as plain text for any field type; the domain parser
-# decides what the value means. Unknown IDs and unparseable values are therefore reported by the
-# validator (one aggregated message), not by schema validation.
+# The output model is built per group from its active fields: every field gets its own candidate
+# model whose ``value`` has the field's type, and ``field_id`` is a literal of the group's IDs, so
+# a wrong shape or an unknown field is rejected by schema validation and pydantic_ai retries.
+# The types stay lenient where the domain can canonicalise: the canonical form or plain text
+# ("USD 5m", "01/03/2026", "15 %") is accepted, and the domain parser has the last word.
 
 
 class MoneyIn(BaseModel):
     amount: str | int | float
-    currency: str
-
-
-type ScalarIn = str | int | float | bool | MoneyIn
+    currency: str = Field(description="ISO 4217 code, e.g. USD")
 
 
 class EvidenceIn(BaseModel):
-    doc_id: str
-    quote: str
+    doc_id: str = Field(description="Document label, e.g. D2")
+    quote: str = Field(description="Verbatim quote copied from that document")
 
 
 class CandidateIn(BaseModel):
-    value: ScalarIn | list[ScalarIn]
+    """Base of the per-field candidate models; ``value`` is narrowed per field."""
+
+    value: Any
     evidence: list[EvidenceIn] = Field(default_factory=lambda: list[EvidenceIn]())
     rationale: str = ""
     confidence: float = 0.5
@@ -73,7 +85,84 @@ class GroupOutput(BaseModel):
     fields: list[FieldOut] = Field(default_factory=lambda: list[FieldOut]())
 
 
-def _raw_value(value: ScalarIn | list[ScalarIn]) -> object:
+_VALUE_HINTS: dict[FieldType, str] = {
+    FieldType.STRING: "text, exactly as written",
+    FieldType.INTEGER: "a whole number",
+    FieldType.DECIMAL: "a number",
+    FieldType.BOOL: "true or false",
+    FieldType.DATE: "a date, ISO 8601 (YYYY-MM-DD)",
+    FieldType.MONEY: 'an amount and ISO currency, e.g. {"amount": 5000000, "currency": "USD"}',
+    FieldType.PERCENTAGE: 'a percentage, e.g. "15 %"',
+    FieldType.ENUM: "one of the allowed values",
+    FieldType.LIST: "a list of items",
+}
+
+
+def _value_type(spec: ValueSpec) -> Any:
+    """The accepted JSON shape of a value: the canonical form, or plain text for the domain."""
+    match spec.type:
+        case FieldType.STRING | FieldType.DATE | FieldType.ENUM:
+            return str
+        case FieldType.INTEGER:
+            return int | str
+        case FieldType.DECIMAL | FieldType.PERCENTAGE:
+            return int | float | str
+        case FieldType.BOOL:
+            return bool | str
+        case FieldType.MONEY:
+            return MoneyIn | str
+        case FieldType.LIST:
+            return _list_of(_value_type(spec.item_spec)) | str
+
+
+def _value_description(active: ActiveField) -> str:
+    definition = active.definition
+    text = f"{definition.name}: {definition.description} Value: {_VALUE_HINTS[definition.type]}"
+    if definition.allowed_values:
+        text += f" (allowed: {', '.join(definition.allowed_values)})"
+    return text
+
+
+def _list_of(item: Any) -> Any:
+    return list[item]  # pyright: ignore[reportInvalidTypeForm]
+
+
+def _literal(tag: str) -> Any:
+    return Literal[tag]  # pyright: ignore[reportInvalidTypeForm]
+
+
+def build_output_model(group: FieldGroup) -> type[GroupOutput]:
+    """The group's answer schema: one typed candidate model per active field."""
+    entries: list[Any] = []
+    for active in group.fields:
+        description = _value_description(active)
+        candidate: Any = create_model(
+            f"Candidate{active.short_id}",
+            __base__=CandidateIn,
+            value=(_value_type(active.definition.value_spec), Field(description=description)),
+        )
+        entries.append(
+            create_model(
+                f"Field{active.short_id}",
+                __base__=FieldOut,
+                __doc__=description,
+                field_id=(_literal(active.short_id), Field(description=description)),
+                candidates=(_list_of(candidate), ...),
+            )
+        )
+    item: Any = (
+        entries[0]
+        if len(entries) == 1
+        else Annotated[reduce(or_, entries), Field(discriminator="field_id")]
+    )
+    return create_model(
+        "GroupAnswer",
+        __base__=GroupOutput,
+        fields=(_list_of(item), Field(default_factory=list)),
+    )
+
+
+def _raw_value(value: object) -> object:
     if isinstance(value, MoneyIn):
         return {"amount": value.amount, "currency": value.currency}
     if isinstance(value, list):
@@ -259,7 +348,7 @@ class LlmFieldExtractor:
         validator = _GroupValidator(group, context, self._options, self._matcher)
         agent: Agent[_RunState, GroupOutput] = Agent(
             self._model(),
-            output_type=self._configured.output_spec(GroupOutput),
+            output_type=self._configured.output_spec(build_output_model(group)),
             deps_type=_RunState,
             instructions=render_system(group),
             model_settings=self._configured.model_settings,
