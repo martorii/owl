@@ -179,7 +179,7 @@ Branch: `feat/07-model-factory`
 
 ---
 
-## Step 08 — LLM extractor `[~]`
+## Step 08 — LLM extractor `[x]`
 Branch: `feat/08-llm-extractor`
 
 - `infrastructure/llm/extractor.py`: pydantic_ai agent per group; dynamic output model typed per field from the
