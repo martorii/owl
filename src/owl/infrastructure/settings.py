@@ -123,6 +123,10 @@ class ContextSettings(_Section):
     budget_fraction: float = Field(default=0.6, gt=0, lt=1)  # of CONTEXT_WINDOW, document text
 
 
+class JobsSettings(_Section):
+    max_concurrent_runs: PositiveInt = 1  # runs sharing the TPM quota (CONTRACT §9.5)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="OWL_",
@@ -136,6 +140,7 @@ class Settings(BaseSettings):
     parsing: ParsingSettings = Field(default_factory=ParsingSettings)
     matcher: MatcherSettings = Field(default_factory=MatcherSettings)
     context: ContextSettings = Field(default_factory=ContextSettings)
+    jobs: JobsSettings = Field(default_factory=JobsSettings)
 
     def context_budget(self, role: ModelRole = ModelRole.EXTRACTION) -> int:
         """Tokens available for document text in one call of ``role`` (CONTRACT §7.1)."""

@@ -1,0 +1,9 @@
+{% for d in context.documents -%}
+=== {{ d.labelled.short_id }} | {{ d.labelled.document.document_date.isoformat() }}
+{%- if d.labelled.document.filename %} | {{ d.labelled.document.filename }}{% endif %}
+{%- if d.labelled.document.document_type.value != "other" %} | {{ d.labelled.document.document_type.value }}{% endif %}
+{%- if d.truncated %} | excerpt: the document continues beyond this text{% endif %} ===
+{{ d.text }}
+
+{% endfor -%}
+Extract the fields of group "{{ context.group.name }}" from the documents above.

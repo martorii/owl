@@ -103,10 +103,9 @@ Branch: `feat/04-reconciliation`
   `field_inactive_ignored` warning, unparseable value → error (CONTRACT §5.1).
 - Value serialisation to the JSON forms of CONTRACT §6.1 (domain function; DTOs use it in step 12).
 
-**To decide in the step announcement** (then record in CONTRACT §7.3):
-- Merged candidates: which rationale is kept, which spelling is shown when values are equal but differ in
-  case/format, whether identical evidence entries are de-duplicated.
-- Whether a conflict candidate equal to the current value is marked as such.
+**Decided** (user, step 08): after `max_retries` the invalid candidates/evidence are dropped with
+`candidate_dropped` and the rest of the group is kept (CONTRACT §8.4 unchanged). Implemented in the output
+validator: on the last attempt (`ctx.retry >= max_retries`) it accepts instead of raising `ModelRetry`.
 
 **Gate tests**
 - Table-driven: add / change / no-op / conflict / conflict including current value / format-variant
@@ -180,11 +179,11 @@ Branch: `feat/07-model-factory`
 
 ---
 
-## Step 08 — LLM extractor `[ ]`
+## Step 08 — LLM extractor `[~]`
 Branch: `feat/08-llm-extractor`
 
-- `infrastructure/llm/extractor.py`: pydantic_ai agent per group; dynamic, lenient output model from active
-  fields (canonical form or plain string, CONTRACT §7.2); every value passed through the domain parser;
+- `infrastructure/llm/extractor.py`: pydantic_ai agent per group; dynamic output model typed per field from the
+  active fields (canonical form or plain text, CONTRACT §7.2); every value passed through the domain parser;
   Jinja prompts with `prompt_version`; output validator implementing §8.1–8.4 (single aggregated
   `ModelRetry` message, drop after `max_retries`).
 - `infrastructure/llm/rate_limit.py` (CONTRACT §9.5): a 429 waits (`Retry-After`, else backoff with jitter)
