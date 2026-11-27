@@ -23,7 +23,7 @@ dev = [
     "pyright>=1.1.380",
     "import-linter>=2.0",
     "pre-commit>=3.8",
-    "types-pyyaml>=6.0.12.20261113",
+    "types-pyyaml>=6.0.12.20261122",
 ]
 
 [build-system]
